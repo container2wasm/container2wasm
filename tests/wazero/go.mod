@@ -1,12 +1,11 @@
 module github.com/ktock/container2wasm/examples/wazero
 
 go 1.21
-
 toolchain go1.23.2
 
 require (
 	github.com/containers/gvisor-tap-vsock v0.7.3
-	github.com/tetratelabs/wazero v1.8.2
+	github.com/tetratelabs/wazero v1.9.0
 )
 
 require (
