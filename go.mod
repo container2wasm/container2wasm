@@ -8,7 +8,7 @@ require (
 	github.com/containers/gvisor-tap-vsock v0.7.5
 	github.com/moby/sys/user v0.3.0
 	github.com/opencontainers/image-spec v1.1.0
-	github.com/opencontainers/runtime-spec v1.2.0
+	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/urfave/cli v1.22.16
 	golang.org/x/net v0.35.0
 	gotest.tools/v3 v3.5.2
