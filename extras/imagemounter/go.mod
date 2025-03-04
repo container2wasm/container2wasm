@@ -11,7 +11,7 @@ require (
 	github.com/hugelgupf/p9 v0.0.0-00010101000000-000000000000
 	github.com/moby/sys/user v0.3.0
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.1.0
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/sync v0.11.0
