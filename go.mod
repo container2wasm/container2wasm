@@ -1,6 +1,7 @@
 module github.com/ktock/container2wasm
 
 go 1.22
+toolchain go1.23.7
 
 require (
 	github.com/containerd/containerd v1.7.26
@@ -10,7 +11,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/urfave/cli v1.22.16
-	golang.org/x/net v0.35.0
+	golang.org/x/net v0.37.0
 	gotest.tools/v3 v3.5.2
 )
 
@@ -44,10 +45,10 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240401170217-c3f982113cda // indirect
