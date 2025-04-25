@@ -59,5 +59,26 @@ validate-vendor:
 	diff -r -u -q $(CURDIR) ${TMPDIR}/container2wasm
 	rm -rf ${TMPDIR}
 
+# Allowlist Licenses are listed in https://github.com/cncf/foundation/blob/a43993349f8c8d27e82e4c57399bf0f6e527a337/allowed-third-party-license-policy.md
+ALLOWLIST_LICENSES=Apache-2.0,BSD-2-Clause,BSD-2-Clause-FreeBSD,BSD-3-Clause,MIT,ISC,OpenSSL,Python-2.0,PostgreSQL,UPL-1.0,X11,Zlib
+# Our go submodules can be ignored because they are licensed under Apache-2.0. However go-licenses fails to detect the LICENSE file https://github.com/google/go-licenses/issues/186
+# Dependencies from the ignored packages are still checked.
+IGNORELIST := c2w-net-proxy,imagemounter,imagemounter-test,wazero,c2w-net-proxy-test
+# License exception of github.com/hashicorp/errwrap (MPL-2.0) is listed in the following
+# https://github.com/cncf/foundation/blob/a43993349f8c8d27e82e4c57399bf0f6e527a337/license-exceptions/CNCF-licensing-exceptions.csv#L423
+IGNORELIST := $(IGNORELIST),github.com/hashicorp/errwrap
+# License exception of github.com/hashicorp/go-cleanhttp (MPL-2.0) is listed in the following
+# https://github.com/cncf/foundation/blob/a43993349f8c8d27e82e4c57399bf0f6e527a337/license-exceptions/CNCF-licensing-exceptions.csv#L424
+IGNORELIST := $(IGNORELIST),github.com/hashicorp/go-cleanhttp
+# License exception of github.com/hashicorp/go-multierror (MPL-2.0) is listed in the following
+# https://github.com/cncf/foundation/blob/a43993349f8c8d27e82e4c57399bf0f6e527a337/license-exceptions/CNCF-licensing-exceptions.csv#L425
+IGNORELIST := $(IGNORELIST),github.com/hashicorp/go-multierror
+# License exception of github.com/hashicorp/go-retryablehttp (MPL-2.0) is listed in the following
+# https://github.com/cncf/foundation/blob/a43993349f8c8d27e82e4c57399bf0f6e527a337/license-exceptions/CNCF-licensing-exceptions.csv#L430
+IGNORELIST := $(IGNORELIST),github.com/hashicorp/go-retryablehttp
+
+go-licenses:
+	$(foreach dir,$(GO_MODULE_DIRS),(set -eux ; cd $(dir) ; go-licenses check --include_tests ./... --ignore=$(IGNORELIST) --allowed_licenses=$(ALLOWLIST_LICENSES)) || exit 1;)
+
 clean:
 	rm -f $(CURDIR)/out/*
