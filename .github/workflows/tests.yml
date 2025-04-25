@@ -81,3 +81,7 @@ jobs:
       run: |
         go install github.com/vbatts/git-validation@v1.2.0
         git-validation -v -run DCO
+    - name: "Check License"
+      run: |
+        go install github.com/google/go-licenses@v1.6.0
+        make go-licenses
