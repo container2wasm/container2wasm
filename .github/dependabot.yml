@@ -42,3 +42,9 @@ updates:
     directory: "/" # means ".github/workflows"
     schedule:
       interval: "daily"
+
+  # Automatic upgrade for CI Dockerfiles
+  - package-ecosystem: "docker"
+    directory: "/tests/Dockerfile.d/"
+    schedule:
+      interval: "daily"
