@@ -31,7 +31,7 @@ COPY ./tests/imagemounter-test /imagemounter-test
 WORKDIR /imagemounter-test
 RUN go build -o /out/imagemounter-test main.go
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 ARG BUILDX_VERSION
 ARG DOCKER_VERSION
 ARG WAMR_VERSION
