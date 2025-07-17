@@ -266,7 +266,7 @@ COPY --link --from=linux-riscv64-dev /out/Image /pack/Image
 COPY --link --from=rootfs-riscv64-dev /out/rootfs.bin /pack/rootfs.bin
 COPY --link --from=tinyemu-config-dev /out/tinyemu.config /pack/config
 
-FROM rust:1.74.1-buster AS tinyemu-dev-common
+FROM rust:1.74.1-bullseye AS tinyemu-dev-common
 ARG WASI_VFS_VERSION
 ARG WASI_SDK_VERSION
 ARG WASI_SDK_VERSION_FULL
@@ -960,7 +960,7 @@ FROM js-qemu-riscv64-${LOAD_MODE} AS js-qemu-riscv64
 
 FROM js-qemu-riscv64 AS js-riscv64
 
-FROM rust:1.74.1-buster AS bochs-dev-common
+FROM rust:1.74.1-bullseye AS bochs-dev-common
 ARG WASI_VFS_VERSION
 ARG WASI_SDK_VERSION
 ARG WASI_SDK_VERSION_FULL
