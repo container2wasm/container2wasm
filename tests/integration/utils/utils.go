@@ -134,7 +134,7 @@ func runTest(t *testing.T, tt TestSpec, in Input, runtimeEnv []string) {
 			df := filepath.Join(tmpdir, "Dockerfile-integrationtest-store")
 			tmpdest := filepath.Join(tmpdir, "Dockerfile-integrationtest-store-out.tar")
 			assert.NilError(t, os.WriteFile(df, []byte("FROM "+in.Image), 0755))
-			dcmd := exec.Command("docker", "buildx", "build", "--builder=container", "--output", "type=oci,dest="+tmpdest, "--progress=plain", "-f", df, AssetPath)
+			dcmd := exec.Command("docker", "buildx", "build", "--builder=container", "--output", "type=oci,dest="+tmpdest,  "-f", df, AssetPath)
 			dcmd.Stdout = os.Stdout
 			dcmd.Stderr = os.Stderr
 			assert.NilError(t, dcmd.Run())
