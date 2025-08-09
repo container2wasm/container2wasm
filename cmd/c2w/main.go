@@ -254,7 +254,7 @@ func build(builderPath string, srcImgPath string, destDir, destFile string, clic
 
 func buildWithLegacyBuilder(builderPath string, srcImgPath, destDir, destFile string, clicontext *cli.Context) error {
 	buildArgs := []string{
-		"build", "--progress=plain",
+		"build",
 		"--platform=linux/amd64",
 		"--build-arg", fmt.Sprintf("TARGETARCH=%s", clicontext.String("target-arch")),
 	}
