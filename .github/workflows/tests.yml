@@ -16,7 +16,7 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: '1.24.x'
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Build all
       run: |
         make
@@ -34,7 +34,7 @@ jobs:
         target: ["TestWasmtime", "TestWamr", "TestWasmer", "TestWazero", "TestWasmedge"]
         arch: ["x86_64", "(riscv64|aarch64)"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: binfmt
       run: |
         docker run --privileged --rm tonistiigi/binfmt --install riscv64
@@ -52,7 +52,7 @@ jobs:
       matrix:
         arch: ["x86_64", "riscv64", "aarch64"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: test
       env:
         GO_TEST_FLAGS: -run TestBrowsers/.*arch=${{ matrix.arch }}.*
@@ -63,7 +63,7 @@ jobs:
   #   runs-on: ubuntu-24.04
   #   name: Benchmark
   #   steps:
-  #   - uses: actions/checkout@v4
+  #   - uses: actions/checkout@v5
   #   - name: Benchmark
   #     run: |
   #       make benchmark
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-24.04
     name: Linter
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: validate vendor
       run: |
         make validate-vendor
@@ -89,7 +89,7 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: 1.24.x
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 100
     - name: "Check DCO sign"
