@@ -19,7 +19,7 @@ jobs:
     env:
       OUTPUT_DIR: ${{ github.workspace }}/builds
     steps:
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version: 1.24.x
     - uses: actions/checkout@v5
