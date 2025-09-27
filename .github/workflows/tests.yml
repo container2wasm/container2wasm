@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: ["TestWasmtime", "TestWamr", "TestWasmer", "TestWazero", "TestWasmedge"]
+        target: ["TestWasmtime", "TestWamr", "TestWasmer", "TestWazero", "TestWasmedge", "TestTools"]
         arch: ["x86_64", "(riscv64|aarch64)"]
     steps:
     - uses: actions/checkout@v5
