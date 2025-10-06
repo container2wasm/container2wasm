@@ -1,3 +1,3 @@
-FROM selenium/node-chrome:139.0
+FROM selenium/node-chrome:141.0
 COPY scripts/selenium-entrypoint.sh /
 ENTRYPOINT ["/bin/sh", "/selenium-entrypoint.sh"]
