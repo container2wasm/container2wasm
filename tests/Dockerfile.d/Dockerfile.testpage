@@ -1,6 +1,6 @@
 ARG C2W_NET_PROXY_VERSION=v0.5.0
 
-FROM node:24 AS dev
+FROM node:25 AS dev
 ARG C2W_NET_PROXY_VERSION
 COPY ./examples/emscripten/htdocs /assets
 COPY ./tests/scripts/testpage/index.html /assets/
