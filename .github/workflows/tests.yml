@@ -38,6 +38,13 @@ jobs:
     - name: binfmt
       run: |
         docker run --privileged --rm tonistiigi/binfmt --install riscv64
+    - name: cleanup
+      # Try to release free disk space https://github.com/actions/runner-images/issues/709
+      run: |
+        df
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        df
     - name: test
       env:
         GO_TEST_FLAGS: -run ${{ matrix.target }}/.*arch=${{ matrix.arch }}.*
@@ -53,6 +60,13 @@ jobs:
         arch: ["x86_64", "riscv64", "aarch64"]
     steps:
     - uses: actions/checkout@v5
+    - name: cleanup
+      # Try to release free disk space https://github.com/actions/runner-images/issues/709
+      run: |
+        df
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        df
     - name: test
       env:
         GO_TEST_FLAGS: -run TestBrowsers/.*arch=${{ matrix.arch }}.*
