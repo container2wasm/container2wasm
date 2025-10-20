@@ -39,8 +39,8 @@ func main() {
 		invoke        = flag.Bool("invoke", false, "invoke the container with NW support")
 		wasiAddr      = flag.String("wasi-addr", "127.0.0.1:1234", "IP address used to communicate between wasi and network stack (valid only with invoke flag)")
 		wasmtimeCli13 = flag.Bool("wasmtime-cli-13", false, "Use old wasmtime CLI (<= 13)")
+		mac           = flag.String("mac", vmMAC, "mac address assigned to the container")
 	)
-	mac := flag.String("mac", vmMAC, "mac address assigned to the container")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) < 1 {
@@ -266,16 +266,17 @@ func handleConnection(clientConn net.Conn, remoteAddr string, vn *gvnvirtualnetw
 	}
 	defer targetConn.Close()
 
-	done := make(chan struct{}, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
 		io.Copy(targetConn, clientConn)
-		done <- struct{}{}
 	}()
 	go func() {
+		defer wg.Done()
 		io.Copy(clientConn, targetConn)
-		done <- struct{}{}
 	}()
-	<-done
+	wg.Wait()
 }
 
 type sliceFlags []string
