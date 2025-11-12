@@ -6,7 +6,7 @@ toolchain go1.23.2
 
 require (
 	github.com/containers/gvisor-tap-vsock v0.8.5
-	github.com/tetratelabs/wazero v1.9.0
+	github.com/tetratelabs/wazero v1.10.1
 )
 
 require (
