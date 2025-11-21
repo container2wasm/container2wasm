@@ -16,7 +16,7 @@ jobs:
     - uses: actions/setup-go@v6
       with:
         go-version: '1.24.x'
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: Build all
       run: |
         make
@@ -34,7 +34,7 @@ jobs:
         target: ["TestWasmtime", "TestWamr", "TestWasmer", "TestWazero", "TestWasmedge", "TestTools"]
         arch: ["x86_64", "(riscv64|aarch64)"]
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: binfmt
       run: |
         docker run --privileged --rm tonistiigi/binfmt --install riscv64
@@ -59,7 +59,7 @@ jobs:
       matrix:
         arch: ["x86_64", "riscv64", "aarch64"]
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: cleanup
       # Try to release free disk space https://github.com/actions/runner-images/issues/709
       run: |
@@ -77,7 +77,7 @@ jobs:
   #   runs-on: ubuntu-24.04
   #   name: Benchmark
   #   steps:
-  #   - uses: actions/checkout@v5
+  #   - uses: actions/checkout@v6
   #   - name: Benchmark
   #     run: |
   #       make benchmark
@@ -86,7 +86,7 @@ jobs:
     runs-on: ubuntu-24.04
     name: Linter
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - name: validate vendor
       run: |
         make validate-vendor
@@ -103,7 +103,7 @@ jobs:
     - uses: actions/setup-go@v6
       with:
         go-version: 1.24.x
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 100
     - name: "Check DCO sign"
