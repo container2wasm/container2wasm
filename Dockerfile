@@ -5,8 +5,8 @@ ARG WASI_SDK_VERSION=19
 ARG WASI_SDK_VERSION_FULL=${WASI_SDK_VERSION}.0
 ARG WASI_VFS_VERSION=v0.3.0
 ARG WIZER_VERSION=04e49c989542f2bf3a112d60fbf88a62cce2d0d0
-ARG EMSDK_VERSION=3.1.40 # TODO: support recent version
-ARG EMSDK_VERSION_QEMU=3.1.50 # TODO: support recent version
+ARG EMSDK_VERSION=4.0.1 # TODO: support recent version
+ARG EMSDK_VERSION_QEMU=4.0.1 # TODO: support recent version
 ARG BINARYEN_VERSION=114
 ARG BUSYBOX_VERSION=1.36.1
 ARG RUNC_VERSION=v1.3.0
@@ -249,7 +249,7 @@ COPY --link --from=bundle-dev /out/ /rootfs/
 COPY --link --from=init-riscv64-dev /out/init /rootfs/sbin/init
 COPY --link --from=vmtouch-riscv64-dev /out/vmtouch /rootfs/bin/
 COPY --link --from=tini-riscv64-dev /out/tini /rootfs/sbin/tini
-RUN mkdir -p /rootfs/proc /rootfs/sys /rootfs/mnt /rootfs/run /rootfs/tmp /rootfs/dev /rootfs/var /rootfs/etc && mknod /rootfs/dev/null c 1 3 && chmod 666 /rootfs/dev/null
+RUN mkdir -p /rootfs/proc /rootfs/sys /rootfs/mnt /rootfs/run /rootfs/tmp /rootfs/dev /rootfs/var /rootfs/etc /rootfs/opfs /rootfs/mnt/wasi0 /rootfs/mnt/wasi1 /rootfs/mnt/host_data && mknod /rootfs/dev/null c 1 3 && chmod 666 /rootfs/dev/null
 RUN mkdir /out/ && mkisofs -R -o /out/rootfs.bin /rootfs/
 # RUN isoinfo -i /out/rootfs.bin -l
 
@@ -366,7 +366,8 @@ RUN apt-get update && apt-get install -y \
     libtool \
     pkgconf \
     ninja-build \
-    pipx
+    pipx \
+    python3-tomli
 RUN PIPX_BIN_DIR=/usr/local/bin pipx install meson==1.5.0
 RUN mkdir /glib-emscripten
 WORKDIR /glib-emscripten
@@ -751,8 +752,8 @@ RUN MIGRATION_FLAGS= ; \
     if test "${QEMU_MIGRATION}" = "true"  ; then \
       MIGRATION_FLAGS='"-incoming", "file:/pack/vm.state",' ; \
     fi && \
-    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION="" WASI0_PATH=/tmp/wasi0 WASI1_PATH=/tmp/wasi1 envsubst > /out/args-before-cp.json && \
-    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION=$MIGRATION_FLAGS WASI0_PATH=/ WASI1_PATH=/pack envsubst > /out/args.json
+    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION="" WASI0_PATH=/tmp/wasi0 WASI1_PATH=/tmp/wasi1 WASI2_PATH=/tmp/wasi2 envsubst > /out/args-before-cp.json && \
+    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION=$MIGRATION_FLAGS WASI0_PATH=/ WASI1_PATH=/pack WASI2_PATH=/tmp/wasi2 envsubst > /out/args.json
 RUN echo "Module['arguments'] =" > /out/arg-module.js
 RUN cat /out/args.json >> /out/arg-module.js
 RUN echo ";" >> /out/arg-module.js
@@ -768,8 +769,8 @@ RUN MIGRATION_FLAGS= ; \
     if test "${QEMU_MIGRATION}" = "true"  ; then \
       MIGRATION_FLAGS='"-incoming", "file:/pack/vm.state",' ; \
     fi && \
-    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION="" WASI0_PATH=/tmp/wasi0 WASI1_PATH=/tmp/wasi1 envsubst > /out/args-before-cp.json && \
-    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION=$MIGRATION_FLAGS WASI0_PATH=/ WASI1_PATH=/pack envsubst > /out/args.json
+    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION="" WASI0_PATH=/tmp/wasi0 WASI1_PATH=/tmp/wasi1 WASI2_PATH=/tmp/wasi2 envsubst > /out/args-before-cp.json && \
+    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION=$MIGRATION_FLAGS WASI0_PATH=/ WASI1_PATH=/pack WASI2_PATH=/tmp/wasi2 envsubst > /out/args.json
 RUN echo "Module['arguments'] =" > /out/arg-module.js
 RUN cat /out/args.json >> /out/arg-module.js
 RUN echo ";" >> /out/arg-module.js
@@ -785,8 +786,8 @@ RUN MIGRATION_FLAGS= ; \
     if test "${QEMU_MIGRATION}" = "true"  ; then \
       MIGRATION_FLAGS='"-incoming", "file:/pack/vm.state",' ; \
     fi && \
-    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION="" WASI0_PATH=/tmp/wasi0 WASI1_PATH=/tmp/wasi1 envsubst > /out/args-before-cp.json && \
-    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION=$MIGRATION_FLAGS WASI0_PATH=/ WASI1_PATH=/pack envsubst > /out/args.json
+    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION="" WASI0_PATH=/tmp/wasi0 WASI1_PATH=/tmp/wasi1 WASI2_PATH=/tmp/wasi2 envsubst > /out/args-before-cp.json && \
+    cat /args.json.template | LOGLEVEL=$LINUX_LOGLEVEL MEMORY_SIZE=$VM_MEMORY_SIZE_MB CORE_NUMS=$VM_CORE_NUMS MIGRATION=$MIGRATION_FLAGS WASI0_PATH=/ WASI1_PATH=/pack WASI2_PATH=/tmp/wasi2 envsubst > /out/args.json
 RUN echo "Module['arguments'] =" > /out/arg-module.js
 RUN cat /out/args.json >> /out/arg-module.js
 RUN echo ";" >> /out/arg-module.js
@@ -813,7 +814,7 @@ RUN cp /qemu/pc-bios/efi-virtio.rom /pack/
 
 COPY --link --from=get-qemu-state-dev /out/get-qemu-state /get-qemu-state
 COPY --link --from=qemu-config-dev-amd64 /out/args-before-cp.json /
-RUN mkdir -p /tmp/wasi0 /tmp/wasi1
+RUN mkdir -p /tmp/wasi0 /tmp/wasi1 /tmp/wasi2
 WORKDIR /qemu/build/
 ARG QEMU_MIGRATION
 RUN if test "${QEMU_MIGRATION}" = "true"  ; then /get-qemu-state -output=/pack/vm.state --args-json=/args-before-cp.json ./qemu-system-x86_64 ; fi
@@ -833,7 +834,7 @@ RUN cp /qemu/pc-bios/efi-virtio.rom /pack/
 
 COPY --link --from=get-qemu-state-dev /out/get-qemu-state /get-qemu-state
 COPY --link --from=qemu-config-dev-aarch64 /out/args-before-cp.json /
-RUN mkdir -p /tmp/wasi0 /tmp/wasi1
+RUN mkdir -p /tmp/wasi0 /tmp/wasi1 /tmp/wasi2
 WORKDIR /qemu/build/
 ARG QEMU_MIGRATION
 RUN if test "${QEMU_MIGRATION}" = "true"  ; then /get-qemu-state -output=/pack/vm.state --args-json=/args-before-cp.json ./qemu-system-aarch64 ; fi
@@ -852,21 +853,28 @@ RUN cp /qemu/pc-bios/efi-virtio.rom /pack/
 
 COPY --link --from=get-qemu-state-dev /out/get-qemu-state /get-qemu-state
 COPY --link --from=qemu-config-dev-riscv64 /out/args-before-cp.json /
-RUN mkdir -p /tmp/wasi0 /tmp/wasi1
+RUN mkdir -p /tmp/wasi0 /tmp/wasi1 /tmp/wasi2
 WORKDIR /qemu/build/
 ARG QEMU_MIGRATION
 RUN if test "${QEMU_MIGRATION}" = "true"  ; then /get-qemu-state -output=/pack/vm.state --args-json=/args-before-cp.json ./qemu-system-riscv64 ; fi
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-amd64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=$((3000*1024*1024)) -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js" ; \
-    emconfigure ../configure --static --target-list=x86_64-softmmu --cpu=wasm32 --cross-prefix= \
+RUN emcc --version && em++ --version && \
+    EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -pthread" ; \
+    EXTRA_LDFLAGS="-sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2GB -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js -sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" ; \
+    emconfigure ../configure --cc=emcc --cxx=em++ --static --target-list=x86_64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
-    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" && \
-    emmake make -j $(nproc) qemu-system-x86_64
+    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="$EXTRA_LDFLAGS" && \
+    emmake ninja -j $(nproc) qemu-system-x86_64 && \
+    if [ -f qemu-system-x86_64.js ]; then mv qemu-system-x86_64.js /qemu-system-x86_64.js; else mv qemu-system-x86_64 /qemu-system-x86_64.js; fi && \
+    mv qemu-system-x86_64.wasm /qemu-system-x86_64.wasm && \
+    if [ -f qemu-system-x86_64.worker.js ]; then mv qemu-system-x86_64.worker.js /qemu-system-x86_64.worker.js; else touch /qemu-system-x86_64.worker.js; fi
 COPY --from=qemu-x86_64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
-      /emsdk/upstream/emscripten/tools/file_packager.py qemu-system-x86_64.data --preload /pack > load.js ; \
+      /emsdk/upstream/emscripten/tools/file_packager.py qemu-system-x86_64.data --preload /pack > load.js && \
+      mv qemu-system-x86_64.data /qemu-system-x86_64.data && \
+      mv load.js /load.js ; \
     else \
       mkdir /load && \
       mkdir /image && cp /pack/bzImage /image/ && /emsdk/upstream/emscripten/tools/file_packager.py /load/image.data --preload /image > /load/image-load.js && \
@@ -880,14 +888,14 @@ RUN if test "${LOAD_MODE}" = "single" ; then \
     fi
 
 FROM scratch AS js-qemu-amd64-base
-COPY --link --from=qemu-emscripten-dev-amd64 /qemu/build/qemu-system-x86_64 /out.js
-COPY --link --from=qemu-emscripten-dev-amd64 /qemu/build/qemu-system-x86_64.wasm /
-COPY --link --from=qemu-emscripten-dev-amd64 /qemu/build/qemu-system-x86_64.worker.js /
+COPY --link --from=qemu-emscripten-dev-amd64 /qemu-system-x86_64.js /out.js
+COPY --link --from=qemu-emscripten-dev-amd64 /qemu-system-x86_64.wasm /
+COPY --link --from=qemu-emscripten-dev-amd64 /qemu-system-x86_64.worker.js /
 COPY --link --from=qemu-config-dev-amd64 /out/arg-module.js /
 
 FROM js-qemu-amd64-base AS js-qemu-amd64-single
-COPY --link --from=qemu-emscripten-dev-amd64 /qemu/build/qemu-system-x86_64.data /
-COPY --link --from=qemu-emscripten-dev-amd64 /qemu/build/load.js /
+COPY --link --from=qemu-emscripten-dev-amd64 /qemu-system-x86_64.data /
+COPY --link --from=qemu-emscripten-dev-amd64 /load.js /
 
 FROM js-qemu-amd64-base AS js-qemu-amd64-separated
 COPY --link --from=qemu-emscripten-dev-amd64 /load /
@@ -896,10 +904,11 @@ FROM js-qemu-amd64-${LOAD_MODE} AS js-qemu-amd64
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-aarch64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -fno-inline-functions -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 " ; \
+RUN EXTRA_CFLAGS="-O3 -fno-inline-functions -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -pthread" ; \
+    EXTRA_LDFLAGS="-sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 -sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" ; \
     emconfigure ../configure --static --target-list=aarch64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
-    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" && \
+    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="$EXTRA_LDFLAGS" && \
     emmake make -j $(nproc) qemu-system-aarch64
 COPY --from=qemu-aarch64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
@@ -928,10 +937,11 @@ FROM js-qemu-aarch64-$LOAD_MODE AS js-aarch64
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-riscv64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js" ; \
+RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -pthread" ; \
+    EXTRA_LDFLAGS="-sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js -sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" ; \
     emconfigure ../configure --static --target-list=riscv64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
-    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" && \
+    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="$EXTRA_LDFLAGS" && \
     emmake make -j $(nproc) qemu-system-riscv64
 COPY --from=qemu-riscv64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
