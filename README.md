@@ -8,6 +8,8 @@
 [![test workflow](https://github.com/container2wasm/container2wasm/actions/workflows/tests.yml/badge.svg)](https://github.com/container2wasm/container2wasm/actions/workflows/tests.yml?query=branch%3Amain++)
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B162%2Fgithub.com%2Fcontainer2wasm%2Fcontainer2wasm.svg?type=shield&issueType=license)](https://app.fossa.com/projects/custom%2B162%2Fgithub.com%2Fcontainer2wasm%2Fcontainer2wasm?ref=badge_shield&issueType=license)
 
+<img src="./docs/images/logo.png" width="400">
+
 container2wasm is a container-to-wasm image converter that enables to run the container on WASM.
 
 - Converts a container to WASM with emulation by Bochs (for x86_64 containers), TinyEMU (for riscv64 containers) and QEMU.
