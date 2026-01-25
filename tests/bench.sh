@@ -6,7 +6,7 @@ CONTAINER=test-container
 TIMEOUT=60m
 BENCHTIME=3x
 
-DOCKER_BUILDKIT=1 docker build --progress=plain -f tests/Dockerfile.d/Dockerfile.runner -t $CONTAINER .
+DOCKER_BUILDKIT=1 docker build -f tests/Dockerfile.d/Dockerfile.runner -t $CONTAINER .
 docker run --rm -d --privileged -v ${CONTAINER}-cache:/var/lib/docker --name $CONTAINER $CONTAINER
 until docker exec $CONTAINER docker version
 do
