@@ -367,9 +367,9 @@ pub struct FileDescriptor {
 }
 
 impl GuestDescriptor for FileDescriptor {
-    fn read_via_stream(&self, _offset: Filesize) -> Result<InputStream, ErrorCode> {
-        // Streaming not supported - use read() instead
-        Err(ErrorCode::Unsupported)
+    fn read_via_stream(&self, offset: Filesize) -> Result<InputStream, ErrorCode> {
+        // Create a new input stream starting at the given offset
+        Ok(InputStream::new(FileInputStream::new(self.index, offset)))
     }
 
     fn write_via_stream(&self, _offset: Filesize) -> Result<OutputStream, ErrorCode> {
