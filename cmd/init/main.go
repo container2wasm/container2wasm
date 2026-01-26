@@ -28,7 +28,15 @@ const (
 	rootFSTag = "wasi0"
 	// wasi1: pack directory
 	packFSTag = "wasi1"
+
+	// wasi2ConfigPath is the config file path for wasip2 mode
+	wasi2ConfigPath = "/pack/wasi2-config"
 )
+
+// isWasiP2Mode returns true if running in WASI Preview 2 mode
+func isWasiP2Mode() bool {
+	return os.Getenv("WASI_TARGET") == "p2"
+}
 
 func main() {
 	if err := doInit(); err != nil {
