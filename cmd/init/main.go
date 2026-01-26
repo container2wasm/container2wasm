@@ -33,9 +33,14 @@ const (
 	wasi2ConfigPath = "/pack/wasi2-config"
 )
 
-// isWasiP2Mode returns true if running in WASI Preview 2 mode
+// isWasiP2Mode returns true if running in WASI Preview 2 mode.
+// Detection is file-based: the wasi2-config file only exists in wasip2 builds.
+// We check for this file rather than an environment variable because the init
+// process runs inside the Linux VM (Bochs/QEMU), where os.Getenv reads from
+// the VM's environment, not the WASI runtime's environment.
 func isWasiP2Mode() bool {
-	return os.Getenv("WASI_TARGET") == "p2"
+	_, err := os.Stat(wasi2ConfigPath)
+	return err == nil
 }
 
 func main() {
