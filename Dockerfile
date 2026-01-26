@@ -1099,7 +1099,13 @@ RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2
 RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -Wl,--export=wasm_setjmp -c jmp.S -o jmp_wrapper.o
 RUN ${WASI_SDK_PATH}/bin/wasm-ld jmp.o jmp_wrapper.o --export=wasm_setjmp --export=wasm_longjmp --export=handle_jmp --no-entry -r -o /jmp/jmp
 
-# Build VFS stub for wasip2 (fs-wrapper component provides filesystem at composition time)
+# Build VFS stub for wasip2
+# __wasi_vfs_rt_init() is a callback that wasi-vfs runtime calls during initialization.
+# For wasip1: Bochs fork's wasi_extra/vfs/vfs.c implements this with actual VFS setup.
+# For wasip2: We don't use wasi-vfs (fs-wrapper provides filesystem via component model),
+#             but something in Bochs/wasi_extra may still reference the symbol.
+#             This empty stub satisfies the linker. TODO: verify if this stub is actually
+#             needed for wasip2, or if it can be removed entirely.
 WORKDIR /Bochs/bochs/wasi_extra/vfs
 RUN mkdir /vfs
 RUN echo 'void __wasi_vfs_rt_init(void) {}' > /tmp/vfs_stub.c && \
