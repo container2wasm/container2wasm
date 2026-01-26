@@ -488,6 +488,60 @@ func parseInfo(infoD []byte) (info runtimeFlags) {
 	return
 }
 
+// parseWasi2Config parses the wasip2-specific config file.
+// Only handles features not covered by WASI standard interfaces:
+// - m: bind mounts (no WASI equivalent)
+// - n: networking (no WASI equivalent)
+// - b: external bundle (no WASI equivalent)
+//
+// Note: args/env come from wasi:cli, timestamp auto-syncs via wasi:clocks
+func parseWasi2Config(configD []byte) (info runtimeFlags) {
+	var options []string
+	lmchs := delimLines.FindAllIndex(configD, -1)
+	prev := 0
+	for _, m := range lmchs {
+		s := m[0] + 1
+		options = append(options, strings.ReplaceAll(string(configD[prev:s]), "\\\n", "\n"))
+		prev = m[1]
+	}
+	options = append(options, strings.ReplaceAll(string(configD[prev:]), "\\\n", "\n"))
+
+	for _, l := range options {
+		elms := strings.SplitN(l, ":", 2)
+		if len(elms) != 2 {
+			continue
+		}
+		inst := elms[0]
+		o := strings.TrimLeft(elms[1], " ")
+		switch inst {
+		case "m":
+			if o == "" {
+				continue
+			}
+			info.mounts = append(info.mounts, runtimespec.Mount{
+				Type:        "bind",
+				Source:      filepath.Join("/mnt/wasi0", o),
+				Destination: filepath.Join("/", o),
+				Options:     []string{"bind"},
+			})
+			log.Printf("Prepared mount wasi0 => %q", o)
+		case "n":
+			info.withNet = true
+			info.mac = o
+		case "b":
+			info.bundle = o
+		default:
+			// Ignore directives handled by WASI standard interfaces:
+			// - c:, e:, env: come from wasi:cli
+			// - t: auto-syncs via wasi:clocks
+			if inst != "c" && inst != "e" && inst != "env" && inst != "t" {
+				log.Printf("unsupported wasi2-config directive: %q", inst)
+			}
+		}
+	}
+	return
+}
+
 func patchSpec(s runtimespec.Spec, info runtimeFlags, imageConfig imagespec.Image) runtimespec.Spec {
 	s.Mounts = append(s.Mounts, info.mounts...)
 	s.Process.Env = append(s.Process.Env, info.env...)
