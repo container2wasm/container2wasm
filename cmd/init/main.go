@@ -571,6 +571,18 @@ func getRuntimeFlagsFromCLI() runtimeFlags {
 	return info
 }
 
+// syncVMClock sets the VM's internal clock to match the host's wall clock.
+// In wasip2 mode, time.Now() reads from wasi:clocks/wall-clock, giving us
+// the host's current time which we then set inside the VM.
+func syncVMClock() error {
+	hostTime := time.Now().Unix()
+	if err := exec.Command("date", "+%s", "-s", fmt.Sprintf("@%d", hostTime)).Run(); err != nil {
+		return fmt.Errorf("failed to sync VM clock: %w", err)
+	}
+	log.Printf("Synced VM clock to host time: %d", hostTime)
+	return nil
+}
+
 func patchSpec(s runtimespec.Spec, info runtimeFlags, imageConfig imagespec.Image) runtimespec.Spec {
 	s.Mounts = append(s.Mounts, info.mounts...)
 	s.Process.Env = append(s.Process.Env, info.env...)
