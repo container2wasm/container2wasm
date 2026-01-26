@@ -1,0 +1,7 @@
+package c2w:fs-wrapper@0.1.0;
+
+world fs-provider {
+    // Export the filesystem interfaces that Bochs imports
+    export wasi:filesystem/types@0.2.9;
+    export wasi:filesystem/preopens@0.2.9;
+}
