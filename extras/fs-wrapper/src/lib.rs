@@ -139,6 +139,24 @@ impl GuestInputStream for FileInputStream {
 }
 
 // ============================================================================
+// Pollable for embedded file streams
+// ============================================================================
+
+/// A pollable that is always ready (for embedded file streams)
+pub struct AlwaysReadyPollable;
+
+impl GuestPollable for AlwaysReadyPollable {
+    fn ready(&self) -> bool {
+        // Embedded files are always ready to read
+        true
+    }
+
+    fn block(&self) {
+        // No-op: already ready
+    }
+}
+
+// ============================================================================
 // Root directory descriptor
 // ============================================================================
 
