@@ -8,6 +8,7 @@ type BootConfig struct {
 	DebugInit  bool          `json:"debug_init,omitempty"`
 	Container  ContainerInfo `json:"container"`
 	PostMounts []MountInfo   `json:"post_mounts"`
+	WasiP2Mode bool          `json:"wasi_p2_mode,omitempty"`
 }
 
 type ContainerInfo struct {
