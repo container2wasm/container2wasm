@@ -392,12 +392,6 @@ func generateBootConfig(debug, debugInit bool, imageConfigPath, runtimeConfigPat
 		cmdPreRun = [][]string{
 			{"vmtouch", "-tv", "/sbin/runc", "/sbin/init"},
 		}
-		// In WASI P2 mode, also cache the entire container rootfs
-		// This is needed because the fs-wrapper's read_via_stream is not implemented,
-		// so uncached ISO blocks would fail to read at runtime
-		if wasiP2Mode {
-			cmdPreRun = append(cmdPreRun, []string{"vmtouch", "-tv", imageRootfsPath})
-		}
 	}
 	bootConfig := &inittype.BootConfig{
 		Debug:      debug,
