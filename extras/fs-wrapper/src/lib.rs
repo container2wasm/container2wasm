@@ -1,2 +1,697 @@
-// Filesystem wrapper component for container2wasm wasip2 support
-// Implements minimal wasi:filesystem interfaces with embedded files
+//! Filesystem wrapper component for container2wasm wasip2 support
+//! Implements minimal wasi:filesystem interfaces with embedded files
+
+#![allow(unused)]
+
+mod bindings;
+
+use std::cell::Cell;
+
+use bindings::exports::wasi::filesystem::preopens::Guest as PreopensGuest;
+use bindings::exports::wasi::filesystem::types::{
+    Advice, Descriptor, DescriptorBorrow, DescriptorFlags, DescriptorStat, DescriptorType,
+    DirectoryEntry, DirectoryEntryStream, ErrorCode, Filesize, Guest as TypesGuest,
+    GuestDescriptor, GuestDirectoryEntryStream, MetadataHashValue, NewTimestamp, OpenFlags,
+    PathFlags,
+};
+use bindings::wasi::io::streams::{Error, InputStream, OutputStream};
+
+// Embedded files - paths are relative to Cargo.toml
+// These will be populated during Docker build
+const BOCHSRC: &[u8] = include_bytes!("../files/bochsrc");
+const BOOT_ISO: &[u8] = include_bytes!("../files/boot.iso");
+const ROOTFS_BIN: &[u8] = include_bytes!("../files/rootfs.bin");
+
+/// Virtual file entry
+struct VirtualFile {
+    name: &'static str,
+    data: &'static [u8],
+}
+
+static FILES: &[VirtualFile] = &[
+    VirtualFile {
+        name: "bochsrc",
+        data: BOCHSRC,
+    },
+    VirtualFile {
+        name: "boot.iso",
+        data: BOOT_ISO,
+    },
+    VirtualFile {
+        name: "rootfs.bin",
+        data: ROOTFS_BIN,
+    },
+];
+
+/// Find file index by name
+fn find_file(name: &str) -> Option<usize> {
+    let clean = name.trim_start_matches('/').trim_start_matches("./");
+    FILES.iter().position(|f| f.name == clean)
+}
+
+// ============================================================================
+// Root directory descriptor
+// ============================================================================
+
+pub struct RootDescriptor;
+
+impl GuestDescriptor for RootDescriptor {
+    fn read_via_stream(&self, _offset: Filesize) -> Result<InputStream, ErrorCode> {
+        Err(ErrorCode::IsDirectory)
+    }
+
+    fn write_via_stream(&self, _offset: Filesize) -> Result<OutputStream, ErrorCode> {
+        Err(ErrorCode::IsDirectory)
+    }
+
+    fn append_via_stream(&self) -> Result<OutputStream, ErrorCode> {
+        Err(ErrorCode::IsDirectory)
+    }
+
+    fn advise(
+        &self,
+        _offset: Filesize,
+        _length: Filesize,
+        _advice: Advice,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::IsDirectory)
+    }
+
+    fn sync_data(&self) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    fn get_flags(&self) -> Result<DescriptorFlags, ErrorCode> {
+        Ok(DescriptorFlags::READ)
+    }
+
+    fn get_type(&self) -> Result<DescriptorType, ErrorCode> {
+        Ok(DescriptorType::Directory)
+    }
+
+    fn set_size(&self, _size: Filesize) -> Result<(), ErrorCode> {
+        Err(ErrorCode::IsDirectory)
+    }
+
+    fn set_times(
+        &self,
+        _data_access_timestamp: NewTimestamp,
+        _data_modification_timestamp: NewTimestamp,
+    ) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    fn read(&self, _length: Filesize, _offset: Filesize) -> Result<(Vec<u8>, bool), ErrorCode> {
+        Err(ErrorCode::IsDirectory)
+    }
+
+    fn write(&self, _buffer: Vec<u8>, _offset: Filesize) -> Result<Filesize, ErrorCode> {
+        Err(ErrorCode::IsDirectory)
+    }
+
+    fn read_directory(&self) -> Result<DirectoryEntryStream, ErrorCode> {
+        Ok(DirectoryEntryStream::new(RootDirStream {
+            index: Cell::new(0),
+        }))
+    }
+
+    fn sync(&self) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    fn create_directory_at(&self, _path: String) -> Result<(), ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn stat(&self) -> Result<DescriptorStat, ErrorCode> {
+        Ok(DescriptorStat {
+            type_: DescriptorType::Directory,
+            link_count: 1,
+            size: 0,
+            data_access_timestamp: None,
+            data_modification_timestamp: None,
+            status_change_timestamp: None,
+        })
+    }
+
+    fn stat_at(&self, _path_flags: PathFlags, path: String) -> Result<DescriptorStat, ErrorCode> {
+        match find_file(&path) {
+            Some(idx) => Ok(DescriptorStat {
+                type_: DescriptorType::RegularFile,
+                link_count: 1,
+                size: FILES[idx].data.len() as u64,
+                data_access_timestamp: None,
+                data_modification_timestamp: None,
+                status_change_timestamp: None,
+            }),
+            None => Err(ErrorCode::NoEntry),
+        }
+    }
+
+    fn set_times_at(
+        &self,
+        _path_flags: PathFlags,
+        _path: String,
+        _data_access_timestamp: NewTimestamp,
+        _data_modification_timestamp: NewTimestamp,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn link_at(
+        &self,
+        _old_path_flags: PathFlags,
+        _old_path: String,
+        _new_descriptor: DescriptorBorrow<'_>,
+        _new_path: String,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn open_at(
+        &self,
+        _path_flags: PathFlags,
+        path: String,
+        _open_flags: OpenFlags,
+        _flags: DescriptorFlags,
+    ) -> Result<Descriptor, ErrorCode> {
+        match find_file(&path) {
+            Some(idx) => Ok(Descriptor::new(FileDescriptor { index: idx })),
+            None => Err(ErrorCode::NoEntry),
+        }
+    }
+
+    fn readlink_at(&self, _path: String) -> Result<String, ErrorCode> {
+        Err(ErrorCode::Invalid)
+    }
+
+    fn remove_directory_at(&self, _path: String) -> Result<(), ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn rename_at(
+        &self,
+        _old_path: String,
+        _new_descriptor: DescriptorBorrow<'_>,
+        _new_path: String,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn symlink_at(&self, _old_path: String, _new_path: String) -> Result<(), ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn unlink_file_at(&self, _path: String) -> Result<(), ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn is_same_object(&self, _other: DescriptorBorrow<'_>) -> bool {
+        // Simplified comparison - would need proper handle comparison for full impl
+        false
+    }
+
+    fn metadata_hash(&self) -> Result<MetadataHashValue, ErrorCode> {
+        Ok(MetadataHashValue { lower: 0, upper: 0 })
+    }
+
+    fn metadata_hash_at(
+        &self,
+        _path_flags: PathFlags,
+        path: String,
+    ) -> Result<MetadataHashValue, ErrorCode> {
+        match find_file(&path) {
+            Some(idx) => Ok(MetadataHashValue {
+                lower: idx as u64,
+                upper: 0,
+            }),
+            None => Err(ErrorCode::NoEntry),
+        }
+    }
+}
+
+// ============================================================================
+// File descriptor for embedded files
+// ============================================================================
+
+pub struct FileDescriptor {
+    index: usize,
+}
+
+impl GuestDescriptor for FileDescriptor {
+    fn read_via_stream(&self, _offset: Filesize) -> Result<InputStream, ErrorCode> {
+        // Streaming not supported - use read() instead
+        Err(ErrorCode::Unsupported)
+    }
+
+    fn write_via_stream(&self, _offset: Filesize) -> Result<OutputStream, ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn append_via_stream(&self) -> Result<OutputStream, ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn advise(
+        &self,
+        _offset: Filesize,
+        _length: Filesize,
+        _advice: Advice,
+    ) -> Result<(), ErrorCode> {
+        Ok(()) // Advisory is a no-op
+    }
+
+    fn sync_data(&self) -> Result<(), ErrorCode> {
+        Ok(()) // Read-only, nothing to sync
+    }
+
+    fn get_flags(&self) -> Result<DescriptorFlags, ErrorCode> {
+        Ok(DescriptorFlags::READ)
+    }
+
+    fn get_type(&self) -> Result<DescriptorType, ErrorCode> {
+        Ok(DescriptorType::RegularFile)
+    }
+
+    fn set_size(&self, _size: Filesize) -> Result<(), ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn set_times(
+        &self,
+        _data_access_timestamp: NewTimestamp,
+        _data_modification_timestamp: NewTimestamp,
+    ) -> Result<(), ErrorCode> {
+        Ok(()) // Silently accept but don't actually change anything
+    }
+
+    fn read(&self, length: Filesize, offset: Filesize) -> Result<(Vec<u8>, bool), ErrorCode> {
+        let data = FILES[self.index].data;
+        let offset = offset as usize;
+        let length = length as usize;
+
+        if offset >= data.len() {
+            return Ok((vec![], true)); // EOF
+        }
+
+        let end = std::cmp::min(offset + length, data.len());
+        let chunk = data[offset..end].to_vec();
+        let at_eof = end >= data.len();
+
+        Ok((chunk, at_eof))
+    }
+
+    fn write(&self, _buffer: Vec<u8>, _offset: Filesize) -> Result<Filesize, ErrorCode> {
+        Err(ErrorCode::ReadOnly)
+    }
+
+    fn read_directory(&self) -> Result<DirectoryEntryStream, ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn sync(&self) -> Result<(), ErrorCode> {
+        Ok(())
+    }
+
+    fn create_directory_at(&self, _path: String) -> Result<(), ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn stat(&self) -> Result<DescriptorStat, ErrorCode> {
+        Ok(DescriptorStat {
+            type_: DescriptorType::RegularFile,
+            link_count: 1,
+            size: FILES[self.index].data.len() as u64,
+            data_access_timestamp: None,
+            data_modification_timestamp: None,
+            status_change_timestamp: None,
+        })
+    }
+
+    fn stat_at(&self, _path_flags: PathFlags, _path: String) -> Result<DescriptorStat, ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn set_times_at(
+        &self,
+        _path_flags: PathFlags,
+        _path: String,
+        _data_access_timestamp: NewTimestamp,
+        _data_modification_timestamp: NewTimestamp,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn link_at(
+        &self,
+        _old_path_flags: PathFlags,
+        _old_path: String,
+        _new_descriptor: DescriptorBorrow<'_>,
+        _new_path: String,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn open_at(
+        &self,
+        _path_flags: PathFlags,
+        _path: String,
+        _open_flags: OpenFlags,
+        _flags: DescriptorFlags,
+    ) -> Result<Descriptor, ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn readlink_at(&self, _path: String) -> Result<String, ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn remove_directory_at(&self, _path: String) -> Result<(), ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn rename_at(
+        &self,
+        _old_path: String,
+        _new_descriptor: DescriptorBorrow<'_>,
+        _new_path: String,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn symlink_at(&self, _old_path: String, _new_path: String) -> Result<(), ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn unlink_file_at(&self, _path: String) -> Result<(), ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+
+    fn is_same_object(&self, _other: DescriptorBorrow<'_>) -> bool {
+        false
+    }
+
+    fn metadata_hash(&self) -> Result<MetadataHashValue, ErrorCode> {
+        Ok(MetadataHashValue {
+            lower: self.index as u64,
+            upper: 1,
+        })
+    }
+
+    fn metadata_hash_at(
+        &self,
+        _path_flags: PathFlags,
+        _path: String,
+    ) -> Result<MetadataHashValue, ErrorCode> {
+        Err(ErrorCode::NotDirectory)
+    }
+}
+
+// ============================================================================
+// Directory entry stream for listing /pack contents
+// ============================================================================
+
+pub struct RootDirStream {
+    index: Cell<usize>,
+}
+
+impl GuestDirectoryEntryStream for RootDirStream {
+    fn read_directory_entry(&self) -> Result<Option<DirectoryEntry>, ErrorCode> {
+        let idx = self.index.get();
+        if idx >= FILES.len() {
+            Ok(None)
+        } else {
+            self.index.set(idx + 1);
+            Ok(Some(DirectoryEntry {
+                type_: DescriptorType::RegularFile,
+                name: FILES[idx].name.to_string(),
+            }))
+        }
+    }
+}
+
+// ============================================================================
+// Guest implementations
+// ============================================================================
+
+/// Descriptor type enum for dynamic dispatch
+pub enum AnyDescriptor {
+    Root(RootDescriptor),
+    File(FileDescriptor),
+}
+
+impl GuestDescriptor for AnyDescriptor {
+    fn read_via_stream(&self, offset: Filesize) -> Result<InputStream, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.read_via_stream(offset),
+            AnyDescriptor::File(d) => d.read_via_stream(offset),
+        }
+    }
+
+    fn write_via_stream(&self, offset: Filesize) -> Result<OutputStream, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.write_via_stream(offset),
+            AnyDescriptor::File(d) => d.write_via_stream(offset),
+        }
+    }
+
+    fn append_via_stream(&self) -> Result<OutputStream, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.append_via_stream(),
+            AnyDescriptor::File(d) => d.append_via_stream(),
+        }
+    }
+
+    fn advise(
+        &self,
+        offset: Filesize,
+        length: Filesize,
+        advice: Advice,
+    ) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.advise(offset, length, advice),
+            AnyDescriptor::File(d) => d.advise(offset, length, advice),
+        }
+    }
+
+    fn sync_data(&self) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.sync_data(),
+            AnyDescriptor::File(d) => d.sync_data(),
+        }
+    }
+
+    fn get_flags(&self) -> Result<DescriptorFlags, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.get_flags(),
+            AnyDescriptor::File(d) => d.get_flags(),
+        }
+    }
+
+    fn get_type(&self) -> Result<DescriptorType, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.get_type(),
+            AnyDescriptor::File(d) => d.get_type(),
+        }
+    }
+
+    fn set_size(&self, size: Filesize) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.set_size(size),
+            AnyDescriptor::File(d) => d.set_size(size),
+        }
+    }
+
+    fn set_times(
+        &self,
+        data_access_timestamp: NewTimestamp,
+        data_modification_timestamp: NewTimestamp,
+    ) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.set_times(data_access_timestamp, data_modification_timestamp),
+            AnyDescriptor::File(d) => d.set_times(data_access_timestamp, data_modification_timestamp),
+        }
+    }
+
+    fn read(&self, length: Filesize, offset: Filesize) -> Result<(Vec<u8>, bool), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.read(length, offset),
+            AnyDescriptor::File(d) => d.read(length, offset),
+        }
+    }
+
+    fn write(&self, buffer: Vec<u8>, offset: Filesize) -> Result<Filesize, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.write(buffer, offset),
+            AnyDescriptor::File(d) => d.write(buffer, offset),
+        }
+    }
+
+    fn read_directory(&self) -> Result<DirectoryEntryStream, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.read_directory(),
+            AnyDescriptor::File(d) => d.read_directory(),
+        }
+    }
+
+    fn sync(&self) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.sync(),
+            AnyDescriptor::File(d) => d.sync(),
+        }
+    }
+
+    fn create_directory_at(&self, path: String) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.create_directory_at(path),
+            AnyDescriptor::File(d) => d.create_directory_at(path),
+        }
+    }
+
+    fn stat(&self) -> Result<DescriptorStat, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.stat(),
+            AnyDescriptor::File(d) => d.stat(),
+        }
+    }
+
+    fn stat_at(&self, path_flags: PathFlags, path: String) -> Result<DescriptorStat, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.stat_at(path_flags, path),
+            AnyDescriptor::File(d) => d.stat_at(path_flags, path),
+        }
+    }
+
+    fn set_times_at(
+        &self,
+        path_flags: PathFlags,
+        path: String,
+        data_access_timestamp: NewTimestamp,
+        data_modification_timestamp: NewTimestamp,
+    ) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => {
+                d.set_times_at(path_flags, path, data_access_timestamp, data_modification_timestamp)
+            }
+            AnyDescriptor::File(d) => {
+                d.set_times_at(path_flags, path, data_access_timestamp, data_modification_timestamp)
+            }
+        }
+    }
+
+    fn link_at(
+        &self,
+        old_path_flags: PathFlags,
+        old_path: String,
+        new_descriptor: DescriptorBorrow<'_>,
+        new_path: String,
+    ) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.link_at(old_path_flags, old_path, new_descriptor, new_path),
+            AnyDescriptor::File(d) => d.link_at(old_path_flags, old_path, new_descriptor, new_path),
+        }
+    }
+
+    fn open_at(
+        &self,
+        path_flags: PathFlags,
+        path: String,
+        open_flags: OpenFlags,
+        flags: DescriptorFlags,
+    ) -> Result<Descriptor, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.open_at(path_flags, path, open_flags, flags),
+            AnyDescriptor::File(d) => d.open_at(path_flags, path, open_flags, flags),
+        }
+    }
+
+    fn readlink_at(&self, path: String) -> Result<String, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.readlink_at(path),
+            AnyDescriptor::File(d) => d.readlink_at(path),
+        }
+    }
+
+    fn remove_directory_at(&self, path: String) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.remove_directory_at(path),
+            AnyDescriptor::File(d) => d.remove_directory_at(path),
+        }
+    }
+
+    fn rename_at(
+        &self,
+        old_path: String,
+        new_descriptor: DescriptorBorrow<'_>,
+        new_path: String,
+    ) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.rename_at(old_path, new_descriptor, new_path),
+            AnyDescriptor::File(d) => d.rename_at(old_path, new_descriptor, new_path),
+        }
+    }
+
+    fn symlink_at(&self, old_path: String, new_path: String) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.symlink_at(old_path, new_path),
+            AnyDescriptor::File(d) => d.symlink_at(old_path, new_path),
+        }
+    }
+
+    fn unlink_file_at(&self, path: String) -> Result<(), ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.unlink_file_at(path),
+            AnyDescriptor::File(d) => d.unlink_file_at(path),
+        }
+    }
+
+    fn is_same_object(&self, other: DescriptorBorrow<'_>) -> bool {
+        match self {
+            AnyDescriptor::Root(d) => d.is_same_object(other),
+            AnyDescriptor::File(d) => d.is_same_object(other),
+        }
+    }
+
+    fn metadata_hash(&self) -> Result<MetadataHashValue, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.metadata_hash(),
+            AnyDescriptor::File(d) => d.metadata_hash(),
+        }
+    }
+
+    fn metadata_hash_at(
+        &self,
+        path_flags: PathFlags,
+        path: String,
+    ) -> Result<MetadataHashValue, ErrorCode> {
+        match self {
+            AnyDescriptor::Root(d) => d.metadata_hash_at(path_flags, path),
+            AnyDescriptor::File(d) => d.metadata_hash_at(path_flags, path),
+        }
+    }
+}
+
+/// Main component implementation
+pub struct FsWrapper;
+
+impl TypesGuest for FsWrapper {
+    type Descriptor = AnyDescriptor;
+    type DirectoryEntryStream = RootDirStream;
+
+    fn filesystem_error_code(_err: &Error) -> Option<ErrorCode> {
+        // We don't create stream errors, so this is always None
+        None
+    }
+}
+
+impl PreopensGuest for FsWrapper {
+    fn get_directories() -> Vec<(Descriptor, String)> {
+        // Return root directory descriptor mapped to /pack
+        vec![(
+            Descriptor::new(AnyDescriptor::Root(RootDescriptor)),
+            "/pack".into(),
+        )]
+    }
+}
+
+bindings::export!(FsWrapper with_types_in bindings);
