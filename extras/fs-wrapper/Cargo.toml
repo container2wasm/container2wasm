@@ -16,6 +16,6 @@ package = "c2w:fs-wrapper"
 path = "wit"
 
 [package.metadata.component.target.dependencies]
-"wasi:io" = { path = "wit/deps/io" }
-"wasi:clocks" = { path = "wit/deps/clocks" }
-"wasi:filesystem" = { path = "wit/deps/filesystem" }
+"wasi:io" = "0.2.9"
+"wasi:clocks" = "0.2.9"
+"wasi:filesystem" = "0.2.9"
