@@ -158,7 +158,7 @@ impl GuestInputStream for FileInputStream {
 
     fn subscribe(&self) -> Pollable {
         // Return an always-ready pollable since data is always available
-        Pollable::new(AlwaysReadyPollable)
+        Pollable::new(PollableVariant::AlwaysReady(AlwaysReadyPollable))
     }
 }
 
@@ -195,8 +195,7 @@ impl GuestInputStream for HostInputStreamWrapper {
     }
 
     fn subscribe(&self) -> Pollable {
-        // TODO: Will be updated in Task 15 to use PollableVariant
-        Pollable::new(AlwaysReadyPollable)
+        Pollable::new(PollableVariant::Host(HostPollableWrapper::new(self.inner.subscribe())))
     }
 }
 
@@ -233,8 +232,7 @@ impl GuestOutputStream for HostOutputStreamWrapper {
     }
 
     fn subscribe(&self) -> Pollable {
-        // TODO: Will be updated in Task 15 to use PollableVariant
-        Pollable::new(AlwaysReadyPollable)
+        Pollable::new(PollableVariant::Host(HostPollableWrapper::new(self.inner.subscribe())))
     }
 
     fn write_zeroes(&self, len: u64) -> Result<(), StreamError> {
@@ -269,6 +267,49 @@ impl GuestPollable for AlwaysReadyPollable {
 
     fn block(&self) {
         // No-op: already ready
+    }
+}
+
+/// Wrapper that delegates to host pollable
+pub struct HostPollableWrapper {
+    inner: HostPollable,
+}
+
+impl HostPollableWrapper {
+    fn new(inner: HostPollable) -> Self {
+        Self { inner }
+    }
+}
+
+impl GuestPollable for HostPollableWrapper {
+    fn ready(&self) -> bool {
+        self.inner.ready()
+    }
+
+    fn block(&self) {
+        self.inner.block()
+    }
+}
+
+/// Enum to hold different pollable types
+pub enum PollableVariant {
+    Host(HostPollableWrapper),
+    AlwaysReady(AlwaysReadyPollable),
+}
+
+impl GuestPollable for PollableVariant {
+    fn ready(&self) -> bool {
+        match self {
+            PollableVariant::Host(h) => h.ready(),
+            PollableVariant::AlwaysReady(a) => a.ready(),
+        }
+    }
+
+    fn block(&self) {
+        match self {
+            PollableVariant::Host(h) => h.block(),
+            PollableVariant::AlwaysReady(a) => a.block(),
+        }
     }
 }
 
@@ -972,7 +1013,7 @@ impl GuestOutputStream for NoOpOutputStream {
     }
 
     fn subscribe(&self) -> Pollable {
-        Pollable::new(AlwaysReadyPollable)
+        Pollable::new(PollableVariant::AlwaysReady(AlwaysReadyPollable))
     }
 
     fn write_zeroes(&self, _len: u64) -> Result<(), StreamError> {
@@ -993,11 +1034,21 @@ impl GuestOutputStream for NoOpOutputStream {
 }
 
 impl PollGuest for FsWrapper {
-    type Pollable = AlwaysReadyPollable;
+    type Pollable = PollableVariant;
 
     fn poll(pollables: Vec<bindings::exports::wasi::io::poll::PollableBorrow<'_>>) -> Vec<u32> {
-        // All our pollables are always ready
-        (0..pollables.len() as u32).collect()
+        // For simplicity, poll each and return all ready ones
+        pollables
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| {
+                if p.get::<PollableVariant>().ready() {
+                    Some(i as u32)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
