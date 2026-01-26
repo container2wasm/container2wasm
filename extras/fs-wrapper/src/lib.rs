@@ -826,4 +826,63 @@ impl ErrorGuest for FsWrapper {
     type Error = StreamErrorResource;
 }
 
+impl StreamsGuest for FsWrapper {
+    type InputStream = FileInputStream;
+    type OutputStream = NoOpOutputStream;
+}
+
+/// Placeholder output stream (we only need input streams)
+pub struct NoOpOutputStream;
+
+impl GuestOutputStream for NoOpOutputStream {
+    fn check_write(&self) -> Result<u64, StreamError> {
+        Err(StreamError::Closed)
+    }
+
+    fn write(&self, _contents: Vec<u8>) -> Result<(), StreamError> {
+        Err(StreamError::Closed)
+    }
+
+    fn blocking_write_and_flush(&self, _contents: Vec<u8>) -> Result<(), StreamError> {
+        Err(StreamError::Closed)
+    }
+
+    fn flush(&self) -> Result<(), StreamError> {
+        Err(StreamError::Closed)
+    }
+
+    fn blocking_flush(&self) -> Result<(), StreamError> {
+        Err(StreamError::Closed)
+    }
+
+    fn subscribe(&self) -> Pollable {
+        Pollable::new(AlwaysReadyPollable)
+    }
+
+    fn write_zeroes(&self, _len: u64) -> Result<(), StreamError> {
+        Err(StreamError::Closed)
+    }
+
+    fn blocking_write_zeroes_and_flush(&self, _len: u64) -> Result<(), StreamError> {
+        Err(StreamError::Closed)
+    }
+
+    fn splice(&self, _src: bindings::exports::wasi::io::streams::InputStreamBorrow<'_>, _len: u64) -> Result<u64, StreamError> {
+        Err(StreamError::Closed)
+    }
+
+    fn blocking_splice(&self, _src: bindings::exports::wasi::io::streams::InputStreamBorrow<'_>, _len: u64) -> Result<u64, StreamError> {
+        Err(StreamError::Closed)
+    }
+}
+
+impl PollGuest for FsWrapper {
+    type Pollable = AlwaysReadyPollable;
+
+    fn poll(pollables: Vec<bindings::exports::wasi::io::poll::PollableBorrow<'_>>) -> Vec<u32> {
+        // All our pollables are always ready
+        (0..pollables.len() as u32).collect()
+    }
+}
+
 bindings::export!(FsWrapper with_types_in bindings);
