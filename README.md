@@ -55,6 +55,22 @@ hi
 
 > Please refer to [`./examples/networking/wasi/`](./examples/networking/wasi/) for enabling networking
 
+### WASI Preview 2 Support (Experimental)
+
+container2wasm can also build images targeting WASI Preview 2 (Component Model):
+
+```console
+$ c2w --target=wasi-p2 alpine:latest out.wasm
+```
+
+This produces a Component Model wasm file that can be run on wasi-p2-compatible runtimes:
+
+```console
+$ wasmtime run out.wasm
+```
+
+> NOTE: wasi-p2 support is experimental. Networking is not yet implemented for wasi-p2.
+
 ### Container on Browser
 
 ![Container on browser](./docs/images/ubuntu-wasi-on-browser.png)
@@ -207,6 +223,7 @@ Options
 - `--dockerfile value`: Custom location of Dockerfile (default: embedded to this command)
 - `--builder value`: Bulider command to use (default: "docker")
 - `--target-arch value`: target architecture of the source image to use (default: "amd64")
+- `--target value`: target WASI version: "wasi-p1" (default) or "wasi-p2" (experimental)
 - `--build-arg value`: Additional build arguments (please see Dockerfile for available build args)
 - `--to-js`: convert the container to WASM using emscripten
 - `--debug-image`: Enable debug print in the output image
