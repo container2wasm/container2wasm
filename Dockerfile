@@ -14,7 +14,6 @@ ARG RUNC_VERSION=v1.3.0
 ARG WASI_SDK_VERSION_P2=27
 ARG WASI_SDK_VERSION_P2_FULL=${WASI_SDK_VERSION_P2}.0
 ARG WIZER_VERSION_P2=v8.0.0
-ARG WASI_VIRT_VERSION_P2=19b174a3244f81ed9b91e067b6901f71665316a8
 ARG CARGO_COMPONENT_VERSION=0.21.1
 ARG WAC_CLI_VERSION=0.6.1
 ARG RUST_VERSION=1.87
@@ -1046,16 +1045,6 @@ RUN curl -o wasi-sdk.tar.gz -fSL https://github.com/WebAssembly/wasi-sdk/release
     tar xvf wasi-sdk.tar.gz && rm wasi-sdk.tar.gz
 ENV WASI_SDK_PATH=/wasi/wasi-sdk-${WASI_SDK_VERSION_P2_FULL}-x86_64-linux
 
-# wasi-virt for Component Model filesystem virtualization
-WORKDIR /work/
-RUN git clone https://github.com/bytecodealliance/wasi-virt.git && \
-    cd wasi-virt && \
-    git checkout "${WASI_VIRT_VERSION_P2}" && \
-    cargo build --release && \
-    mkdir -p /tools/wasi-virt/ && \
-    mv target/release/wasi-virt /tools/wasi-virt/ && \
-    cargo clean
-
 # wizer with wasip2 support
 WORKDIR /work/
 RUN git clone https://github.com/bytecodealliance/wizer && \
@@ -1110,13 +1099,13 @@ RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2
 RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -Wl,--export=wasm_setjmp -c jmp.S -o jmp_wrapper.o
 RUN ${WASI_SDK_PATH}/bin/wasm-ld jmp.o jmp_wrapper.o --export=wasm_setjmp --export=wasm_longjmp --export=handle_jmp --no-entry -r -o /jmp/jmp
 
-# Build VFS stub for wasip2 (wasi-virt handles filesystem virtualization)
+# Build VFS stub for wasip2 (fs-wrapper component provides filesystem at composition time)
 WORKDIR /Bochs/bochs/wasi_extra/vfs
 RUN mkdir /vfs
 RUN echo 'void __wasi_vfs_rt_init(void) {}' > /tmp/vfs_stub.c && \
     ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -c /tmp/vfs_stub.c -o /vfs/vfs.o
 
-# Configure and build Bochs (compile as core wasm, wasi-virt will componentize)
+# Configure and build Bochs (compile as core wasm, componentize with wasm-tools later)
 WORKDIR /Bochs/bochs
 ARG INIT_DEBUG
 RUN LOGGING_FLAG=--disable-logging && \
