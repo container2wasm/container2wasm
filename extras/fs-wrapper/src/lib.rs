@@ -313,6 +313,49 @@ impl GuestPollable for PollableVariant {
     }
 }
 
+/// Enum to hold different input stream types
+pub enum InputStreamVariant {
+    Host(HostInputStreamWrapper),
+    File(FileInputStream),
+}
+
+impl GuestInputStream for InputStreamVariant {
+    fn read(&self, len: u64) -> Result<Vec<u8>, StreamError> {
+        match self {
+            InputStreamVariant::Host(h) => h.read(len),
+            InputStreamVariant::File(f) => f.read(len),
+        }
+    }
+
+    fn blocking_read(&self, len: u64) -> Result<Vec<u8>, StreamError> {
+        match self {
+            InputStreamVariant::Host(h) => h.blocking_read(len),
+            InputStreamVariant::File(f) => f.blocking_read(len),
+        }
+    }
+
+    fn skip(&self, len: u64) -> Result<u64, StreamError> {
+        match self {
+            InputStreamVariant::Host(h) => h.skip(len),
+            InputStreamVariant::File(f) => f.skip(len),
+        }
+    }
+
+    fn blocking_skip(&self, len: u64) -> Result<u64, StreamError> {
+        match self {
+            InputStreamVariant::Host(h) => h.blocking_skip(len),
+            InputStreamVariant::File(f) => f.blocking_skip(len),
+        }
+    }
+
+    fn subscribe(&self) -> Pollable {
+        match self {
+            InputStreamVariant::Host(h) => h.subscribe(),
+            InputStreamVariant::File(f) => f.subscribe(),
+        }
+    }
+}
+
 // ============================================================================
 // Error resource for stream errors
 // ============================================================================
@@ -525,8 +568,7 @@ pub struct FileDescriptor {
 
 impl GuestDescriptor for FileDescriptor {
     fn read_via_stream(&self, offset: Filesize) -> Result<InputStream, ErrorCode> {
-        // Create a new input stream starting at the given offset
-        Ok(InputStream::new(FileInputStream::new(self.index, offset)))
+        Ok(InputStream::new(InputStreamVariant::File(FileInputStream::new(self.index, offset))))
     }
 
     fn write_via_stream(&self, _offset: Filesize) -> Result<OutputStream, ErrorCode> {
@@ -984,8 +1026,8 @@ impl ErrorGuest for FsWrapper {
 }
 
 impl StreamsGuest for FsWrapper {
-    type InputStream = FileInputStream;
-    type OutputStream = NoOpOutputStream;
+    type InputStream = InputStreamVariant;
+    type OutputStream = HostOutputStreamWrapper;
 }
 
 /// Placeholder output stream (we only need input streams)
@@ -1054,7 +1096,7 @@ impl PollGuest for FsWrapper {
 
 impl StdinGuest for FsWrapper {
     fn get_stdin() -> InputStream {
-        InputStream::new(HostInputStreamWrapper::new(host_get_stdin()))
+        InputStream::new(InputStreamVariant::Host(HostInputStreamWrapper::new(host_get_stdin())))
     }
 }
 
