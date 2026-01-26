@@ -14,6 +14,7 @@ ARG RUNC_VERSION=v1.3.0
 ARG WASI_SDK_VERSION_P2=27
 ARG WASI_SDK_VERSION_P2_FULL=${WASI_SDK_VERSION_P2}.0
 ARG WIZER_VERSION_P2=v8.0.0
+ARG WASI_VIRT_VERSION_P2=19b174a3244f81ed9b91e067b6901f71665316a8
 
 # ARG LINUX_LOGLEVEL=0
 # ARG INIT_DEBUG=false
@@ -1026,6 +1027,46 @@ RUN LOGGING_FLAG=--disable-logging && \
 RUN make -j$(nproc) bochs EMU_DEPS="/tools/wasi-vfs/libwasi_vfs.a /jmp/jmp /vfs/vfs.o -lrt"
 RUN /binaryen/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt bochs --asyncify -O2 -o bochs.async --pass-arg=asyncify-ignore-imports
 RUN mv bochs.async bochs
+
+# ===== WASIP2 TOOLCHAIN =====
+FROM rust:1.74.1-bullseye AS bochs-toolchain-p2
+ARG WASI_SDK_VERSION_P2
+ARG WASI_SDK_VERSION_P2_FULL
+ARG WIZER_VERSION_P2
+ARG WASI_VIRT_VERSION_P2
+ARG BINARYEN_VERSION
+RUN apt-get update -y && apt-get install -y make curl git gcc xz-utils
+
+# wasi-sdk v27 with wasip2 support
+WORKDIR /wasi
+RUN curl -o wasi-sdk.tar.gz -fSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION_P2}/wasi-sdk-${WASI_SDK_VERSION_P2_FULL}-x86_64-linux.tar.gz && \
+    tar xvf wasi-sdk.tar.gz && rm wasi-sdk.tar.gz
+ENV WASI_SDK_PATH=/wasi/wasi-sdk-${WASI_SDK_VERSION_P2_FULL}
+
+# wasi-virt for Component Model filesystem virtualization
+WORKDIR /work/
+RUN git clone https://github.com/bytecodealliance/wasi-virt.git && \
+    cd wasi-virt && \
+    git checkout "${WASI_VIRT_VERSION_P2}" && \
+    cargo build --release && \
+    mkdir -p /tools/wasi-virt/ && \
+    mv target/release/wasi-virt /tools/wasi-virt/ && \
+    cargo clean
+
+# wizer with wasip2 support
+WORKDIR /work/
+RUN git clone https://github.com/bytecodealliance/wizer && \
+    cd wizer && \
+    git checkout "${WIZER_VERSION_P2}" && \
+    cargo build --bin wizer --all-features --release && \
+    mkdir -p /tools/wizer/ && \
+    mv include target/release/wizer /tools/wizer/ && \
+    cargo clean
+
+# binaryen (same version as p1)
+RUN wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz
+RUN mkdir -p /binaryen
+RUN tar -C /binaryen -zxvf /tmp/binaryen.tar.gz
 
 FROM bochs-dev-common AS bochs-dev-native
 COPY --link --from=vm-amd64-dev /pack /minpack
