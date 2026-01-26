@@ -1,0 +1,13 @@
+# WASI P2 config - advanced features not covered by standard WASI interfaces
+# Format: directive: value
+#
+# Available directives:
+#   m: <path>     - Bind mount from /mnt/wasi0/<path> to /<path>
+#   n: <mac>      - Enable networking with optional MAC address
+#   b: <addr>     - External bundle address (9p=host:port)
+#
+# Note: These features are handled automatically by WASI standard interfaces:
+#   - args, entrypoint, env: via wasi:cli (pass with: wasmtime run out.wasm -- /bin/sh)
+#   - timestamp: auto-synced from host via wasi:clocks/wall-clock
+#
+# Default: no mounts, no networking (standalone container)
