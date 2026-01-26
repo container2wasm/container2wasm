@@ -14,6 +14,7 @@ ARG RUNC_VERSION=v1.3.0
 ARG WASI_SDK_VERSION_P2=27
 ARG WASI_SDK_VERSION_P2_FULL=${WASI_SDK_VERSION_P2}.0
 ARG WIZER_VERSION_P2=v8.0.0
+ARG WASMTIME_VERSION=v41.0.0
 ARG CARGO_COMPONENT_VERSION=0.21.1
 ARG WAC_CLI_VERSION=0.6.1
 ARG RUST_VERSION=1.87
@@ -1063,8 +1064,9 @@ RUN cargo install wasm-tools --locked && \
     mv /usr/local/cargo/bin/wasm-tools /tools/wasm-tools/
 
 # WASI preview1 to preview2 adapter (required for component model conversion)
+ARG WASMTIME_VERSION
 RUN curl -fSL -o /tools/wasi_snapshot_preview1.reactor.wasm \
-    https://github.com/bytecodealliance/wasmtime/releases/download/v29.0.1/wasi_snapshot_preview1.reactor.wasm
+    https://github.com/bytecodealliance/wasmtime/releases/download/${WASMTIME_VERSION}/wasi_snapshot_preview1.reactor.wasm
 
 # binaryen (same version as p1)
 RUN wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz
@@ -1077,6 +1079,10 @@ ARG RUST_VERSION
 FROM rust:${RUST_VERSION}-bookworm AS fs-wrapper-build
 WORKDIR /work
 
+# Install wasm32 targets for component building
+# wasip1 is needed by cargo-component internals, wasip2 is the actual build target
+RUN rustup target add wasm32-wasip1 wasm32-wasip2
+
 # Install cargo-component for building WASM components
 ARG CARGO_COMPONENT_VERSION
 RUN cargo install cargo-component@${CARGO_COMPONENT_VERSION} --locked
@@ -1085,8 +1091,19 @@ RUN cargo install cargo-component@${CARGO_COMPONENT_VERSION} --locked
 ARG WAC_CLI_VERSION
 RUN cargo install wac-cli@${WAC_CLI_VERSION} --locked
 
-# Copy the fs-wrapper source
-COPY --link extras/fs-wrapper /work/fs-wrapper
+# Copy the fs-wrapper source (from assets context when using c2w --assets)
+COPY --link --from=assets extras/fs-wrapper /work/fs-wrapper
+
+# Copy pack files to embed (from vm-amd64-dev which has the compiled rootfs and boot ISO)
+COPY --link --from=vm-amd64-dev /pack/rootfs.bin /minpack/
+COPY --link --from=vm-amd64-dev /pack/boot.iso /minpack/
+
+# Build fs-wrapper with embedded files
+WORKDIR /work/fs-wrapper
+ENV FS_WRAPPER_PACK_DIR=/minpack
+RUN cargo-component build --release
+# Output: /work/fs-wrapper/target/wasm32-wasip1/release/fs_wrapper.wasm
+# Note: cargo-component uses wasm32-wasip1 target directory even for WASI P2 components
 
 # ===== BOCHS WASIP2 COMPILATION =====
 FROM bochs-toolchain-p2 AS bochs-dev-p2-common
@@ -1144,19 +1161,14 @@ RUN /tools/wasm-tools/wasm-tools component new bochs \
     --adapt wasi_snapshot_preview1=/tools/wasi_snapshot_preview1.reactor.wasm \
     -o bochs.component.wasm
 
-# Build fs-wrapper component with embedded /minpack files
-COPY --link --from=fs-wrapper-build /work/fs-wrapper /work/fs-wrapper
-COPY --link --from=fs-wrapper-build /usr/local/cargo/bin/cargo-component /usr/local/bin/
+# Copy pre-built fs-wrapper component and wac tool
+# Note: cargo-component 0.21.1 uses wasm32-wasip1 target directory even for WASI P2 components
+COPY --link --from=fs-wrapper-build /work/fs-wrapper/target/wasm32-wasip1/release/fs_wrapper.wasm /work/fs_wrapper.wasm
 COPY --link --from=fs-wrapper-build /usr/local/cargo/bin/wac /usr/local/bin/
-WORKDIR /work/fs-wrapper
-ENV FS_WRAPPER_PACK_DIR=/minpack
-RUN cargo-component build --release
-# Output: /work/fs-wrapper/target/wasm32-wasip2/release/fs_wrapper.wasm
 
 # Compose: plug fs-wrapper into bochs to satisfy filesystem imports
-WORKDIR /Bochs/bochs
 RUN wac plug bochs.component.wasm \
-    --plug /work/fs-wrapper/target/wasm32-wasip2/release/fs_wrapper.wasm \
+    --plug /work/fs_wrapper.wasm \
     -o bochs.composed.wasm
 
 # Package final output (single file with embedded filesystem)

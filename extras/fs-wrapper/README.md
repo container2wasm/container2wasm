@@ -67,3 +67,45 @@ All files in `FS_WRAPPER_PACK_DIR` are embedded and exposed under `/pack`:
 - Read-only filesystem (all write operations return `ErrorCode::ReadOnly`)
 - Single directory level (no subdirectories)
 - No streaming I/O (use `read()` method instead of streams)
+
+## Why WIT files are bundled in the repository
+
+The `wit/deps/` directory contains WASI WIT files sourced directly from wasmtime
+v41.0.0 rather than using cargo-component's registry. This is intentional.
+
+### WASI Version Compatibility
+
+There's a version mismatch in the current WASI ecosystem:
+
+| Component | WASI Version |
+|-----------|--------------|
+| cargo-component registry | 0.2.9 only |
+| Wasmtime v41.0.0 preview1 adapter | 0.2.6 |
+
+When composing components with `wac plug`, strict version matching is enforced.
+A component exporting `wasi:filesystem@0.2.9` cannot plug into imports expecting
+`wasi:filesystem@0.2.6`, even though they are semantically compatible.
+
+### Preserving WASI P1 Compatibility
+
+The preview1 adapter is essential for running existing WASI P1 code (like Bochs)
+as WASI P2 components. It converts legacy `fd_read`, `fd_write`, etc. calls to
+the component model's `wasi:filesystem` interfaces.
+
+Since the adapter produces components with 0.2.6 imports, we must export 0.2.6
+interfaces. By bundling the WIT files from wasmtime's source, we ensure exact
+version alignment and successful component composition.
+
+### Removing @unstable annotations
+
+The bundled WIT files have `@unstable` annotations removed. cargo-component by
+default excludes interfaces marked unstable, but some stable interfaces import
+from unstable ones (e.g., `wasi:cli` imports `wasi:clocks/timezone`), causing
+build failures. Removing the annotations makes all interfaces available.
+
+### When this can change
+
+This workaround will no longer be necessary when either:
+- The wasmtime preview1 adapter is updated to use WASI 0.2.9+
+- Composition tools (wac, wasm-compose) support version aliasing
+- cargo-component adds a flag to enable unstable features
