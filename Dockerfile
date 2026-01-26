@@ -1098,6 +1098,8 @@ COPY --link --from=assets extras/fs-wrapper /work/fs-wrapper
 # Copy pack files to embed (from vm-amd64-dev which has the compiled rootfs and boot ISO)
 COPY --link --from=vm-amd64-dev /pack/rootfs.bin /minpack/
 COPY --link --from=vm-amd64-dev /pack/boot.iso /minpack/
+# Copy wasi2-config for wasip2 standalone operation
+COPY --link extras/fs-wrapper/default-wasi2-config /minpack/wasi2-config
 
 # Build fs-wrapper with embedded files
 WORKDIR /work/fs-wrapper
