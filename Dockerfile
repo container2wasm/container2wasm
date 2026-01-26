@@ -1064,9 +1064,10 @@ RUN cargo install wasm-tools --locked && \
     mv /usr/local/cargo/bin/wasm-tools /tools/wasm-tools/
 
 # WASI preview1 to preview2 adapter (required for component model conversion)
+# Using command adapter (not reactor) because Bochs has _start entry point
 ARG WASMTIME_VERSION
-RUN curl -fSL -o /tools/wasi_snapshot_preview1.reactor.wasm \
-    https://github.com/bytecodealliance/wasmtime/releases/download/${WASMTIME_VERSION}/wasi_snapshot_preview1.reactor.wasm
+RUN curl -fSL -o /tools/wasi_snapshot_preview1.command.wasm \
+    https://github.com/bytecodealliance/wasmtime/releases/download/${WASMTIME_VERSION}/wasi_snapshot_preview1.command.wasm
 
 # binaryen (same version as p1)
 RUN wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz
@@ -1157,8 +1158,9 @@ RUN mkdir /minpack && cp /pack/rootfs.bin /minpack/ && cp /pack/boot.iso /minpac
 
 FROM bochs-dev-p2-${OPTIMIZATION_MODE} AS bochs-dev-p2-packed
 # Convert core wasm to component with preview1 adapter
+# command adapter adds wasi:cli/run export for wasmtime run compatibility
 RUN /tools/wasm-tools/wasm-tools component new bochs \
-    --adapt wasi_snapshot_preview1=/tools/wasi_snapshot_preview1.reactor.wasm \
+    --adapt wasi_snapshot_preview1=/tools/wasi_snapshot_preview1.command.wasm \
     -o bochs.component.wasm
 
 # Copy pre-built fs-wrapper component and wac tool
