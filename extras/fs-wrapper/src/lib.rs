@@ -18,6 +18,8 @@ use bindings::wasi::io::streams::InputStream as HostInputStream;
 use bindings::wasi::io::streams::OutputStream as HostOutputStream;
 use bindings::wasi::io::streams::StreamError as HostStreamError;
 use bindings::wasi::io::poll::Pollable as HostPollable;
+use bindings::wasi::clocks::monotonic_clock as host_monotonic_clock;
+use bindings::wasi::clocks::wall_clock as host_wall_clock;
 
 use bindings::exports::wasi::filesystem::preopens::Guest as PreopensGuest;
 use bindings::exports::wasi::filesystem::types::{
@@ -40,6 +42,14 @@ use bindings::exports::wasi::io::error::{Guest as ErrorGuest, GuestError, ErrorB
 use bindings::exports::wasi::cli::stdin::Guest as StdinGuest;
 use bindings::exports::wasi::cli::stdout::Guest as StdoutGuest;
 use bindings::exports::wasi::cli::stderr::Guest as StderrGuest;
+
+// Clocks export Guest traits (for implementing clock delegation)
+use bindings::exports::wasi::clocks::monotonic_clock::{
+    Guest as MonotonicClockGuest, Duration, Instant,
+};
+use bindings::exports::wasi::clocks::wall_clock::{
+    Guest as WallClockGuest, Datetime,
+};
 
 /// Convert host StreamError to exported StreamError
 fn convert_stream_error(err: HostStreamError) -> StreamError {
@@ -1109,6 +1119,46 @@ impl StdoutGuest for FsWrapper {
 impl StderrGuest for FsWrapper {
     fn get_stderr() -> OutputStream {
         OutputStream::new(HostOutputStreamWrapper::new(host_get_stderr()))
+    }
+}
+
+impl MonotonicClockGuest for FsWrapper {
+    fn now() -> Instant {
+        host_monotonic_clock::now()
+    }
+
+    fn resolution() -> Duration {
+        host_monotonic_clock::resolution()
+    }
+
+    fn subscribe_instant(when: Instant) -> Pollable {
+        Pollable::new(PollableVariant::Host(HostPollableWrapper::new(
+            host_monotonic_clock::subscribe_instant(when),
+        )))
+    }
+
+    fn subscribe_duration(when: Duration) -> Pollable {
+        Pollable::new(PollableVariant::Host(HostPollableWrapper::new(
+            host_monotonic_clock::subscribe_duration(when),
+        )))
+    }
+}
+
+impl WallClockGuest for FsWrapper {
+    fn now() -> Datetime {
+        let host_dt = host_wall_clock::now();
+        Datetime {
+            seconds: host_dt.seconds,
+            nanoseconds: host_dt.nanoseconds,
+        }
+    }
+
+    fn resolution() -> Datetime {
+        let host_dt = host_wall_clock::resolution();
+        Datetime {
+            seconds: host_dt.seconds,
+            nanoseconds: host_dt.nanoseconds,
+        }
     }
 }
 
