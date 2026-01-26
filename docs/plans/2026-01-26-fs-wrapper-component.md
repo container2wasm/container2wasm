@@ -835,30 +835,47 @@ Expected: PR shows recent commits with fs-wrapper changes
 
 ---
 
-## Verification Checklist
+## Implementation Status
 
-After completing all tasks:
+**COMPLETED: 2026-01-26**
 
-1. **Local build test:**
-   ```bash
-   ./c2w --target=wasi-p2 alpine:latest test.wasm
-   ls -la test.wasm  # Should be single file ~70MB
-   ```
+All tasks completed. WASI P2 standalone operation working.
 
-2. **Component inspection:**
-   ```bash
-   wasm-tools component wit test.wasm | grep -E "(import|export)"
-   # Should show: no wasi:filesystem imports, exports wasi:cli/run
-   ```
+### Key Implementation Notes
 
-3. **Runtime test:**
-   ```bash
-   wasmtime run test.wasm
-   # Should show Bochs boot output
-   ```
+1. **fs-wrapper Component**: Implements `wasi:filesystem/types` and `wasi:filesystem/preopens` interfaces to provide embedded files (boot.iso, rootfs.bin, wasi2-config) to Bochs.
 
-4. **Regression test (wasip1 still works):**
-   ```bash
-   ./c2w --target=wasi-p1 alpine:latest test-p1.wasm
-   wasmtime run --dir .::/ test-p1.wasm
-   ```
+2. **vmtouch Pre-caching**: The fs-wrapper's `read_via_stream` is not fully implemented (would require exporting `wasi:io/streams`). Workaround: use vmtouch during wizer to cache the entire container rootfs into the kernel page cache before snapshot. This increases wasm size (~8MB for Alpine) but ensures all file data is available at runtime.
+
+3. **Build Pipeline**:
+   - Bochs compiled with wasip1, converted to component via `wasm-tools component new`
+   - fs-wrapper compiled as component with embedded files via `cargo-component`
+   - Components composed via `wac plug` to satisfy Bochs' filesystem imports
+
+### Verification Commands
+
+```bash
+# Build wasip2 output
+./c2w --target wasi-p2 --assets . --dockerfile Dockerfile alpine:3.19 out.wasm
+
+# Run standalone (no filesystem mounting needed)
+echo 'echo hello; exit' | wasmtime run out.wasm
+
+# Check component structure
+wasm-tools component wit out.wasm | head -30
+
+# Regression test (wasip1 still works)
+./c2w --target wasi-p1 --assets . --dockerfile Dockerfile alpine:3.19 out-p1.wasm
+echo 'echo hello; exit' | wasmtime run --dir /::/ out-p1.wasm
+```
+
+### File Sizes
+
+- WASI P1 output: ~108 MB (uses wasi-vfs)
+- WASI P2 output: ~117 MB (includes vmtouch-cached rootfs)
+
+### Known Limitations
+
+1. `read_via_stream` not implemented - relies on vmtouch pre-caching
+2. Larger binary due to embedded rootfs cache
+3. External bundle mode not yet tested with wasip2
