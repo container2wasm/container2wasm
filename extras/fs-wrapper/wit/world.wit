@@ -5,4 +5,9 @@ world fs-provider {
     // Using local WIT files from wasmtime v41.0.0 (WASI 0.2.6)
     export wasi:filesystem/types@0.2.6;
     export wasi:filesystem/preopens@0.2.6;
+
+    // Export streams interfaces for read_via_stream support
+    export wasi:io/streams@0.2.6;
+    export wasi:io/poll@0.2.6;
+    export wasi:io/error@0.2.6;
 }
