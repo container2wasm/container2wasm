@@ -1029,7 +1029,7 @@ RUN /binaryen/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt bochs --asyncify
 RUN mv bochs.async bochs
 
 # ===== WASIP2 TOOLCHAIN =====
-FROM rust:1.74.1-bullseye AS bochs-toolchain-p2
+FROM rust:1.85.0-bookworm AS bochs-toolchain-p2
 ARG WASI_SDK_VERSION_P2
 ARG WASI_SDK_VERSION_P2_FULL
 ARG WIZER_VERSION_P2
@@ -1041,7 +1041,7 @@ RUN apt-get update -y && apt-get install -y make curl git gcc xz-utils
 WORKDIR /wasi
 RUN curl -o wasi-sdk.tar.gz -fSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION_P2}/wasi-sdk-${WASI_SDK_VERSION_P2_FULL}-x86_64-linux.tar.gz && \
     tar xvf wasi-sdk.tar.gz && rm wasi-sdk.tar.gz
-ENV WASI_SDK_PATH=/wasi/wasi-sdk-${WASI_SDK_VERSION_P2_FULL}
+ENV WASI_SDK_PATH=/wasi/wasi-sdk-${WASI_SDK_VERSION_P2_FULL}-x86_64-linux
 
 # wasi-virt for Component Model filesystem virtualization
 WORKDIR /work/
@@ -1058,10 +1058,21 @@ WORKDIR /work/
 RUN git clone https://github.com/bytecodealliance/wizer && \
     cd wizer && \
     git checkout "${WIZER_VERSION_P2}" && \
+    rm Cargo.lock && \
     cargo build --bin wizer --all-features --release && \
     mkdir -p /tools/wizer/ && \
     mv include target/release/wizer /tools/wizer/ && \
-    cargo clean
+    cargo clean && \
+    sed -i 's/__WIZER_EXTERN_C void __wasi_proc_exit(int)/__WIZER_EXTERN_C _Noreturn void __wasi_proc_exit(__wasi_exitcode_t)/' /tools/wizer/include/wizer.h
+
+# wasm-tools for component model conversion
+RUN cargo install wasm-tools --locked && \
+    mkdir -p /tools/wasm-tools && \
+    mv /usr/local/cargo/bin/wasm-tools /tools/wasm-tools/
+
+# WASI preview1 to preview2 adapter (required for component model conversion)
+RUN curl -fSL -o /tools/wasi_snapshot_preview1.reactor.wasm \
+    https://github.com/bytecodealliance/wasmtime/releases/download/v29.0.1/wasi_snapshot_preview1.reactor.wasm
 
 # binaryen (same version as p1)
 RUN wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz
@@ -1072,32 +1083,33 @@ RUN tar -C /binaryen -zxvf /tmp/binaryen.tar.gz
 FROM bochs-toolchain-p2 AS bochs-dev-p2-common
 COPY --link --from=bochs-repo / /Bochs
 
-# Build JMP module for wasip2
+# Build JMP module for wasip2 (compile as core wasm, componentize later)
 WORKDIR /Bochs/bochs/wasi_extra/jmp
 RUN mkdir /jmp && cp jmp.h /jmp/
-RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasip2 -c jmp.c -I . -o jmp.o
-RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasip2 -Wl,--export=wasm_setjmp -c jmp.S -o jmp_wrapper.o
+RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -c jmp.c -I . -o jmp.o
+RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -Wl,--export=wasm_setjmp -c jmp.S -o jmp_wrapper.o
 RUN ${WASI_SDK_PATH}/bin/wasm-ld jmp.o jmp_wrapper.o --export=wasm_setjmp --export=wasm_longjmp --export=handle_jmp --no-entry -r -o /jmp/jmp
 
-# Build VFS module for wasip2
+# Build VFS stub for wasip2 (wasi-virt handles filesystem virtualization)
 WORKDIR /Bochs/bochs/wasi_extra/vfs
 RUN mkdir /vfs
-RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasip2 -c vfs.c -I . -o /vfs/vfs.o
+RUN echo 'void __wasi_vfs_rt_init(void) {}' > /tmp/vfs_stub.c && \
+    ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -c /tmp/vfs_stub.c -o /vfs/vfs.o
 
-# Configure and build Bochs for wasip2
+# Configure and build Bochs (compile as core wasm, wasi-virt will componentize)
 WORKDIR /Bochs/bochs
 ARG INIT_DEBUG
 RUN LOGGING_FLAG=--disable-logging && \
     if test "${INIT_DEBUG}" = "true" ; then LOGGING_FLAG=--enable-logging ; fi && \
     CC="${WASI_SDK_PATH}/bin/clang" CXX="${WASI_SDK_PATH}/bin/clang++" RANLIB="${WASI_SDK_PATH}/bin/ranlib" \
-    CFLAGS="--sysroot=${WASI_SDK_PATH}/share/wasi-sysroot --target=wasm32-wasip2 -D_WASI_EMULATED_SIGNAL -DWASI -D__GNU__ -O2 -I/jmp/ -I/tools/wizer/include/" \
+    CFLAGS="--sysroot=${WASI_SDK_PATH}/share/wasi-sysroot --target=wasm32-wasi -D_WASI_EMULATED_SIGNAL -DWASI -D__GNU__ -O2 -I/jmp/ -I/tools/wizer/include/" \
     CXXFLAGS="${CFLAGS}" \
-    ./configure --host wasm32-wasip2 --enable-x86-64 --with-nogui --enable-usb --enable-usb-ehci \
+    ./configure --host wasm32-wasi --enable-x86-64 --with-nogui --enable-usb --enable-usb-ehci \
     --disable-large-ramfile --disable-show-ips --disable-stats ${LOGGING_FLAG} \
     --enable-repeat-speedups --enable-fast-function-calls --disable-trace-linking --enable-handlers-chaining --enable-avx
 RUN make -j$(nproc) bochs EMU_DEPS="/jmp/jmp /vfs/vfs.o -lrt"
 
-# Apply asyncify (must be done before componentization)
+# Apply asyncify (must be done on core wasm before wizer/componentization)
 RUN /binaryen/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt bochs --asyncify -O2 -o bochs.async --pass-arg=asyncify-ignore-imports
 RUN mv bochs.async bochs
 
@@ -1107,15 +1119,19 @@ COPY --link --from=vm-amd64-dev /pack /minpack
 FROM bochs-dev-p2-common AS bochs-dev-p2-wizer
 COPY --link --from=vm-amd64-dev /pack /pack
 ENV WASMTIME_BACKTRACE_DETAILS=1
-# Note: wizer for wasip2 may need different flags - test this
+# Wizer pre-initialization on core wasm
 RUN mv bochs bochs-org && /tools/wizer/wizer --allow-wasi --wasm-bulk-memory=true -r _start=wizer.resume --mapdir /pack::/pack -o bochs bochs-org
 RUN mkdir /minpack && cp /pack/rootfs.bin /minpack/ && cp /pack/boot.iso /minpack/
 
 FROM bochs-dev-p2-${OPTIMIZATION_MODE} AS bochs-dev-p2-packed
-# Use wasi-virt instead of wasi-vfs for Component Model
-RUN /tools/wasi-virt/wasi-virt bochs --mapdir /pack::/minpack -o packed && mkdir /out
+# Convert core wasm to component with preview1 adapter
+RUN /tools/wasm-tools/wasm-tools component new bochs \
+    --adapt wasi_snapshot_preview1=/tools/wasi_snapshot_preview1.reactor.wasm \
+    -o bochs.component.wasm
+# Copy filesystem files alongside the component
+RUN mkdir /out && cp /minpack/* /out/
 ARG OUTPUT_NAME
-RUN mv packed /out/$OUTPUT_NAME
+RUN mv bochs.component.wasm /out/$OUTPUT_NAME
 
 FROM bochs-dev-common AS bochs-dev-native
 COPY --link --from=vm-amd64-dev /pack /minpack
