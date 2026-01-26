@@ -1101,6 +1101,22 @@ RUN make -j$(nproc) bochs EMU_DEPS="/jmp/jmp /vfs/vfs.o -lrt"
 RUN /binaryen/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt bochs --asyncify -O2 -o bochs.async --pass-arg=asyncify-ignore-imports
 RUN mv bochs.async bochs
 
+FROM bochs-dev-p2-common AS bochs-dev-p2-native
+COPY --link --from=vm-amd64-dev /pack /minpack
+
+FROM bochs-dev-p2-common AS bochs-dev-p2-wizer
+COPY --link --from=vm-amd64-dev /pack /pack
+ENV WASMTIME_BACKTRACE_DETAILS=1
+# Note: wizer for wasip2 may need different flags - test this
+RUN mv bochs bochs-org && /tools/wizer/wizer --allow-wasi --wasm-bulk-memory=true -r _start=wizer.resume --mapdir /pack::/pack -o bochs bochs-org
+RUN mkdir /minpack && cp /pack/rootfs.bin /minpack/ && cp /pack/boot.iso /minpack/
+
+FROM bochs-dev-p2-${OPTIMIZATION_MODE} AS bochs-dev-p2-packed
+# Use wasi-virt instead of wasi-vfs for Component Model
+RUN /tools/wasi-virt/wasi-virt bochs --mapdir /pack::/minpack -o packed && mkdir /out
+ARG OUTPUT_NAME
+RUN mv packed /out/$OUTPUT_NAME
+
 FROM bochs-dev-common AS bochs-dev-native
 COPY --link --from=vm-amd64-dev /pack /minpack
 
