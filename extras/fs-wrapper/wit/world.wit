@@ -1,13 +1,26 @@
 package c2w:fs-wrapper@0.1.0;
 
 world fs-provider {
-    // Export the filesystem interfaces that Bochs imports
-    // Using local WIT files from wasmtime v41.0.0 (WASI 0.2.6)
+    // WASI-Virt pattern: Import AND export same interfaces
+    // This unifies resource types during component composition
+
+    // Import from host (for delegation and type unification)
+    import wasi:io/error@0.2.6;
+    import wasi:io/poll@0.2.6;
+    import wasi:io/streams@0.2.6;
+    import wasi:cli/stdin@0.2.6;
+    import wasi:cli/stdout@0.2.6;
+    import wasi:cli/stderr@0.2.6;
+
+    // Export same interfaces (types unified with imports)
+    export wasi:io/error@0.2.6;
+    export wasi:io/poll@0.2.6;
+    export wasi:io/streams@0.2.6;
+    export wasi:cli/stdin@0.2.6;
+    export wasi:cli/stdout@0.2.6;
+    export wasi:cli/stderr@0.2.6;
+
+    // Export filesystem interfaces that Bochs imports
     export wasi:filesystem/types@0.2.6;
     export wasi:filesystem/preopens@0.2.6;
-
-    // Export streams interfaces for read_via_stream support
-    export wasi:io/streams@0.2.6;
-    export wasi:io/poll@0.2.6;
-    export wasi:io/error@0.2.6;
 }
