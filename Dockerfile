@@ -1131,8 +1131,13 @@ RUN /tools/wasi-vfs/wasi-vfs pack /Bochs/bochs/bochs --mapdir /pack::/minpack -o
 ARG OUTPUT_NAME
 RUN mv packed /out/$OUTPUT_NAME
 
+# ===== WASI TARGET SELECTION =====
+FROM bochs-dev-packed AS bochs-final-p1
+FROM bochs-dev-p2-packed AS bochs-final-p2
+FROM bochs-final-${WASI_TARGET} AS bochs-final
+
 FROM scratch AS wasi-amd64
-COPY --link --from=bochs-dev-packed /out/ /
+COPY --link --from=bochs-final /out/ /
 
 
 FROM emscripten/emsdk:$EMSDK_VERSION AS bochs-emscripten
