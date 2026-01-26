@@ -4,12 +4,113 @@
 #[rustfmt::skip]
 #[allow(dead_code, clippy::all)]
 pub mod wasi {
+    pub mod cli {
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod stdin {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            pub type InputStream = super::super::super::wasi::io::streams::InputStream;
+            #[allow(unused_unsafe, clippy::all)]
+            pub fn get_stdin() -> InputStream {
+                unsafe {
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "wasi:cli/stdin@0.2.6")]
+                    unsafe extern "C" {
+                        #[link_name = "get-stdin"]
+                        fn wit_import0() -> i32;
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import0() -> i32 {
+                        unreachable!()
+                    }
+                    let ret = unsafe { wit_import0() };
+                    unsafe {
+                        super::super::super::wasi::io::streams::InputStream::from_handle(
+                            ret as u32,
+                        )
+                    }
+                }
+            }
+        }
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod stdout {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            pub type OutputStream = super::super::super::wasi::io::streams::OutputStream;
+            #[allow(unused_unsafe, clippy::all)]
+            pub fn get_stdout() -> OutputStream {
+                unsafe {
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "wasi:cli/stdout@0.2.6")]
+                    unsafe extern "C" {
+                        #[link_name = "get-stdout"]
+                        fn wit_import0() -> i32;
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import0() -> i32 {
+                        unreachable!()
+                    }
+                    let ret = unsafe { wit_import0() };
+                    unsafe {
+                        super::super::super::wasi::io::streams::OutputStream::from_handle(
+                            ret as u32,
+                        )
+                    }
+                }
+            }
+        }
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod stderr {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            pub type OutputStream = super::super::super::wasi::io::streams::OutputStream;
+            #[allow(unused_unsafe, clippy::all)]
+            pub fn get_stderr() -> OutputStream {
+                unsafe {
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "wasi:cli/stderr@0.2.6")]
+                    unsafe extern "C" {
+                        #[link_name = "get-stderr"]
+                        fn wit_import0() -> i32;
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import0() -> i32 {
+                        unreachable!()
+                    }
+                    let ret = unsafe { wit_import0() };
+                    unsafe {
+                        super::super::super::wasi::io::streams::OutputStream::from_handle(
+                            ret as u32,
+                        )
+                    }
+                }
+            }
+        }
+    }
     pub mod clocks {
+        /// WASI Wall Clock is a clock API intended to let users query the current
+        /// time. The name "wall" makes an analogy to a "clock on the wall", which
+        /// is not necessarily monotonic as it may be reset.
+        ///
+        /// It is intended to be portable at least between Unix-family platforms and
+        /// Windows.
+        ///
+        /// A wall clock is a clock which measures the date and time according to
+        /// some external reference.
+        ///
+        /// External references may be reset, so this clock is not necessarily
+        /// monotonic, making it unsuitable for measuring elapsed time.
+        ///
+        /// It is intended for reporting the current date and time for humans.
         #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
         pub mod wall_clock {
             #[used]
             #[doc(hidden)]
             static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            /// A time and date in seconds plus nanoseconds.
             #[repr(C)]
             #[derive(Clone, Copy)]
             pub struct Datetime {
@@ -28,6 +129,19 @@ pub mod wasi {
                 }
             }
             #[allow(unused_unsafe, clippy::all)]
+            /// Read the current value of the clock.
+            ///
+            /// This clock is not monotonic, therefore calling this function repeatedly
+            /// will not necessarily produce a sequence of non-decreasing values.
+            ///
+            /// The returned timestamps represent the number of seconds since
+            /// 1970-01-01T00:00:00Z, also known as [POSIX's Seconds Since the Epoch],
+            /// also known as [Unix Time].
+            ///
+            /// The nanoseconds field of the output is always less than 1000000000.
+            ///
+            /// [POSIX's Seconds Since the Epoch]: https://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xbd_chap04.html#tag_21_04_16
+            /// [Unix Time]: https://en.wikipedia.org/wiki/Unix_time
             pub fn now() -> Datetime {
                 unsafe {
                     #[repr(align(8))]
@@ -35,7 +149,7 @@ pub mod wasi {
                     let mut ret_area = RetArea([::core::mem::MaybeUninit::uninit(); 16]);
                     let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                     #[cfg(target_arch = "wasm32")]
-                    #[link(wasm_import_module = "wasi:clocks/wall-clock@0.2.9")]
+                    #[link(wasm_import_module = "wasi:clocks/wall-clock@0.2.6")]
                     unsafe extern "C" {
                         #[link_name = "now"]
                         fn wit_import1(_: *mut u8);
@@ -55,6 +169,9 @@ pub mod wasi {
                 }
             }
             #[allow(unused_unsafe, clippy::all)]
+            /// Query the resolution of the clock.
+            ///
+            /// The nanoseconds field of the output is always less than 1000000000.
             pub fn resolution() -> Datetime {
                 unsafe {
                     #[repr(align(8))]
@@ -62,7 +179,7 @@ pub mod wasi {
                     let mut ret_area = RetArea([::core::mem::MaybeUninit::uninit(); 16]);
                     let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                     #[cfg(target_arch = "wasm32")]
-                    #[link(wasm_import_module = "wasi:clocks/wall-clock@0.2.9")]
+                    #[link(wasm_import_module = "wasi:clocks/wall-clock@0.2.6")]
                     unsafe extern "C" {
                         #[link_name = "resolution"]
                         fn wit_import1(_: *mut u8);
@@ -96,14 +213,14 @@ pub mod wasi {
             /// which provides some human-readable information about the error.
             ///
             /// In the `wasi:io` package, this resource is returned through the
-            /// `wasi:io/streams.stream-error` type.
+            /// `wasi:io/streams/stream-error` type.
             ///
             /// To provide more specific error information, other interfaces may
             /// offer functions to "downcast" this error into more specific types. For example,
             /// errors returned from streams derived from filesystem types can be described using
             /// the filesystem's own error-code type. This is done using the function
-            /// `wasi:filesystem/types.filesystem-error-code`, which takes a `borrow<error>`
-            /// parameter and returns an `option<wasi:filesystem/types.error-code>`.
+            /// `wasi:filesystem/types/filesystem-error-code`, which takes a `borrow<error>`
+            /// parameter and returns an `option<wasi:filesystem/types/error-code>`.
             ///
             /// The set of functions which can "downcast" an `error` into a more
             /// concrete type is open.
@@ -135,7 +252,7 @@ pub mod wasi {
                     unreachable!();
                     #[cfg(target_arch = "wasm32")]
                     {
-                        #[link(wasm_import_module = "wasi:io/error@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/error@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[resource-drop]error"]
                             fn drop(_: u32);
@@ -168,7 +285,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/error@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/error@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]error.to-debug-string"]
                             fn wit_import1(_: i32, _: *mut u8);
@@ -227,7 +344,7 @@ pub mod wasi {
                     unreachable!();
                     #[cfg(target_arch = "wasm32")]
                     {
-                        #[link(wasm_import_module = "wasi:io/poll@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/poll@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[resource-drop]pollable"]
                             fn drop(_: u32);
@@ -244,7 +361,7 @@ pub mod wasi {
                 pub fn ready(&self) -> bool {
                     unsafe {
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/poll@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/poll@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]pollable.ready"]
                             fn wit_import0(_: i32) -> i32;
@@ -268,7 +385,7 @@ pub mod wasi {
                 pub fn block(&self) -> () {
                     unsafe {
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/poll@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/poll@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]pollable.block"]
                             fn wit_import0(_: i32);
@@ -337,7 +454,7 @@ pub mod wasi {
                     }
                     let ptr1 = ret_area.0.as_mut_ptr().cast::<u8>();
                     #[cfg(target_arch = "wasm32")]
-                    #[link(wasm_import_module = "wasi:io/poll@0.2.9")]
+                    #[link(wasm_import_module = "wasi:io/poll@0.2.6")]
                     unsafe extern "C" {
                         #[link_name = "poll"]
                         fn wit_import2(_: *mut u8, _: usize, _: *mut u8);
@@ -449,7 +566,7 @@ pub mod wasi {
                     unreachable!();
                     #[cfg(target_arch = "wasm32")]
                     {
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[resource-drop]input-stream"]
                             fn drop(_: u32);
@@ -498,7 +615,7 @@ pub mod wasi {
                     unreachable!();
                     #[cfg(target_arch = "wasm32")]
                     {
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[resource-drop]output-stream"]
                             fn drop(_: u32);
@@ -550,7 +667,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]input-stream.read"]
                             fn wit_import1(_: i32, _: i64, _: *mut u8);
@@ -633,7 +750,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]input-stream.blocking-read"]
                             fn wit_import1(_: i32, _: i64, _: *mut u8);
@@ -709,7 +826,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]input-stream.skip"]
                             fn wit_import1(_: i32, _: i64, _: *mut u8);
@@ -773,7 +890,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]input-stream.blocking-skip"]
                             fn wit_import1(_: i32, _: i64, _: *mut u8);
@@ -835,7 +952,7 @@ pub mod wasi {
                 pub fn subscribe(&self) -> Pollable {
                     unsafe {
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]input-stream.subscribe"]
                             fn wit_import0(_: i32) -> i32;
@@ -873,7 +990,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.check-write"]
                             fn wit_import1(_: i32, _: *mut u8);
@@ -949,7 +1066,7 @@ pub mod wasi {
                         let len0 = vec0.len();
                         let ptr1 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.write"]
                             fn wit_import2(_: i32, _: *mut u8, _: usize, _: *mut u8);
@@ -1012,13 +1129,27 @@ pub mod wasi {
                 /// Perform a write of up to 4096 bytes, and then flush the stream. Block
                 /// until all of these operations are complete, or an error occurs.
                 ///
-                /// Returns success when all of the contents written are successfully
-                /// flushed to output. If an error occurs at any point before all
-                /// contents are successfully flushed, that error is returned as soon as
-                /// possible. If writing and flushing the complete contents causes the
-                /// stream to become closed, this call should return success, and
-                /// subsequent calls to check-write or other interfaces should return
-                /// stream-error::closed.
+                /// This is a convenience wrapper around the use of `check-write`,
+                /// `subscribe`, `write`, and `flush`, and is implemented with the
+                /// following pseudo-code:
+                ///
+                /// ```text
+                /// let pollable = this.subscribe();
+                /// while !contents.is_empty() {
+                ///     // Wait for the stream to become writable
+                ///     pollable.block();
+                ///     let Ok(n) = this.check-write(); // eliding error handling
+                ///     let len = min(n, contents.len());
+                ///     let (chunk, rest) = contents.split_at(len);
+                ///     this.write(chunk  );            // eliding error handling
+                ///     contents = rest;
+                /// }
+                /// this.flush();
+                /// // Wait for completion of `flush`
+                /// pollable.block();
+                /// // Check for any errors that arose during `flush`
+                /// let _ = this.check-write();         // eliding error handling
+                /// ```
                 pub fn blocking_write_and_flush(
                     &self,
                     contents: &[u8],
@@ -1034,7 +1165,7 @@ pub mod wasi {
                         let len0 = vec0.len();
                         let ptr1 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.blocking-write-and-flush"]
                             fn wit_import2(_: i32, _: *mut u8, _: usize, _: *mut u8);
@@ -1113,7 +1244,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.flush"]
                             fn wit_import1(_: i32, _: *mut u8);
@@ -1172,7 +1303,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.blocking-flush"]
                             fn wit_import1(_: i32, _: *mut u8);
@@ -1233,7 +1364,7 @@ pub mod wasi {
                 pub fn subscribe(&self) -> Pollable {
                     unsafe {
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.subscribe"]
                             fn wit_import0(_: i32) -> i32;
@@ -1268,7 +1399,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.write-zeroes"]
                             fn wit_import1(_: i32, _: i64, _: *mut u8);
@@ -1322,8 +1453,26 @@ pub mod wasi {
                 /// Block until all of these operations are complete, or an error
                 /// occurs.
                 ///
-                /// Functionality is equivelant to `blocking-write-and-flush` with
-                /// contents given as a list of len containing only zeroes.
+                /// This is a convenience wrapper around the use of `check-write`,
+                /// `subscribe`, `write-zeroes`, and `flush`, and is implemented with
+                /// the following pseudo-code:
+                ///
+                /// ```text
+                /// let pollable = this.subscribe();
+                /// while num_zeroes != 0 {
+                ///     // Wait for the stream to become writable
+                ///     pollable.block();
+                ///     let Ok(n) = this.check-write(); // eliding error handling
+                ///     let len = min(n, num_zeroes);
+                ///     this.write-zeroes(len);         // eliding error handling
+                ///     num_zeroes -= len;
+                /// }
+                /// this.flush();
+                /// // Wait for completion of `flush`
+                /// pollable.block();
+                /// // Check for any errors that arose during `flush`
+                /// let _ = this.check-write();         // eliding error handling
+                /// ```
                 pub fn blocking_write_zeroes_and_flush(
                     &self,
                     len: u64,
@@ -1336,7 +1485,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.blocking-write-zeroes-and-flush"]
                             fn wit_import1(_: i32, _: i64, _: *mut u8);
@@ -1412,7 +1561,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.splice"]
                             fn wit_import1(_: i32, _: i32, _: i64, _: *mut u8);
@@ -1493,7 +1642,7 @@ pub mod wasi {
                         );
                         let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
                         #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "wasi:io/streams@0.2.9")]
+                        #[link(wasm_import_module = "wasi:io/streams@0.2.6")]
                         unsafe extern "C" {
                             #[link_name = "[method]output-stream.blocking-splice"]
                             fn wit_import1(_: i32, _: i32, _: i64, _: *mut u8);
@@ -1561,6 +1710,104 @@ pub mod wasi {
 #[allow(dead_code, clippy::all)]
 pub mod exports {
     pub mod wasi {
+        pub mod cli {
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod stdin {
+                #[used]
+                #[doc(hidden)]
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
+                pub type InputStream = super::super::super::super::exports::wasi::io::streams::InputStream;
+                pub type InputStreamBorrow<'a> = super::super::super::super::exports::wasi::io::streams::InputStreamBorrow<
+                    'a,
+                >;
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_get_stdin_cabi<T: Guest>() -> i32 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::get_stdin();
+                    (result0).take_handle() as i32
+                }
+                pub trait Guest {
+                    fn get_stdin() -> InputStream;
+                }
+                #[doc(hidden)]
+                macro_rules! __export_wasi_cli_stdin_0_2_6_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "wasi:cli/stdin@0.2.6#get-stdin")] unsafe extern "C" fn
+                        export_get_stdin() -> i32 { unsafe { $($path_to_types)*::
+                        _export_get_stdin_cabi::<$ty > () } } };
+                    };
+                }
+                #[doc(hidden)]
+                pub(crate) use __export_wasi_cli_stdin_0_2_6_cabi;
+            }
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod stdout {
+                #[used]
+                #[doc(hidden)]
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
+                pub type OutputStream = super::super::super::super::exports::wasi::io::streams::OutputStream;
+                pub type OutputStreamBorrow<'a> = super::super::super::super::exports::wasi::io::streams::OutputStreamBorrow<
+                    'a,
+                >;
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_get_stdout_cabi<T: Guest>() -> i32 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::get_stdout();
+                    (result0).take_handle() as i32
+                }
+                pub trait Guest {
+                    fn get_stdout() -> OutputStream;
+                }
+                #[doc(hidden)]
+                macro_rules! __export_wasi_cli_stdout_0_2_6_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "wasi:cli/stdout@0.2.6#get-stdout")] unsafe extern "C" fn
+                        export_get_stdout() -> i32 { unsafe { $($path_to_types)*::
+                        _export_get_stdout_cabi::<$ty > () } } };
+                    };
+                }
+                #[doc(hidden)]
+                pub(crate) use __export_wasi_cli_stdout_0_2_6_cabi;
+            }
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod stderr {
+                #[used]
+                #[doc(hidden)]
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
+                pub type OutputStream = super::super::super::super::exports::wasi::io::streams::OutputStream;
+                pub type OutputStreamBorrow<'a> = super::super::super::super::exports::wasi::io::streams::OutputStreamBorrow<
+                    'a,
+                >;
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_get_stderr_cabi<T: Guest>() -> i32 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::get_stderr();
+                    (result0).take_handle() as i32
+                }
+                pub trait Guest {
+                    fn get_stderr() -> OutputStream;
+                }
+                #[doc(hidden)]
+                macro_rules! __export_wasi_cli_stderr_0_2_6_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "wasi:cli/stderr@0.2.6#get-stderr")] unsafe extern "C" fn
+                        export_get_stderr() -> i32 { unsafe { $($path_to_types)*::
+                        _export_get_stderr_cabi::<$ty > () } } };
+                    };
+                }
+                #[doc(hidden)]
+                pub(crate) use __export_wasi_cli_stderr_0_2_6_cabi;
+            }
+        }
         pub mod filesystem {
             /// WASI filesystem is a filesystem API primarily intended to let users run WASI
             /// programs that access their files on their existing filesystems, without
@@ -1592,9 +1839,18 @@ pub mod exports {
                 #[doc(hidden)]
                 static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
                 use super::super::super::super::_rt;
-                pub type InputStream = super::super::super::super::wasi::io::streams::InputStream;
-                pub type OutputStream = super::super::super::super::wasi::io::streams::OutputStream;
-                pub type Error = super::super::super::super::wasi::io::streams::Error;
+                pub type InputStream = super::super::super::super::exports::wasi::io::streams::InputStream;
+                pub type InputStreamBorrow<'a> = super::super::super::super::exports::wasi::io::streams::InputStreamBorrow<
+                    'a,
+                >;
+                pub type OutputStream = super::super::super::super::exports::wasi::io::streams::OutputStream;
+                pub type OutputStreamBorrow<'a> = super::super::super::super::exports::wasi::io::streams::OutputStreamBorrow<
+                    'a,
+                >;
+                pub type Error = super::super::super::super::exports::wasi::io::streams::Error;
+                pub type ErrorBorrow<'a> = super::super::super::super::exports::wasi::io::streams::ErrorBorrow<
+                    'a,
+                >;
                 pub type Datetime = super::super::super::super::wasi::clocks::wall_clock::Datetime;
                 /// File size or length of a region within a file.
                 pub type Filesize = u64;
@@ -2345,7 +2601,7 @@ pub mod exports {
                         #[cfg(target_arch = "wasm32")]
                         {
                             #[link(
-                                wasm_import_module = "[export]wasi:filesystem/types@0.2.9"
+                                wasm_import_module = "[export]wasi:filesystem/types@0.2.6"
                             )]
                             unsafe extern "C" {
                                 #[link_name = "[resource-drop]descriptor"]
@@ -2473,7 +2729,7 @@ pub mod exports {
                         #[cfg(target_arch = "wasm32")]
                         {
                             #[link(
-                                wasm_import_module = "[export]wasi:filesystem/types@0.2.9"
+                                wasm_import_module = "[export]wasi:filesystem/types@0.2.6"
                             )]
                             unsafe extern "C" {
                                 #[link_name = "[resource-drop]directory-entry-stream"]
@@ -3495,26 +3751,20 @@ pub mod exports {
                     arg0: i32,
                 ) -> *mut u8 {
                     #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let handle0;
-                    let result1 = T::filesystem_error_code({
-                        handle0 = unsafe {
-                            super::super::super::super::wasi::io::error::Error::from_handle(
-                                arg0 as u32,
-                            )
-                        };
-                        &handle0
+                    let result0 = T::filesystem_error_code(unsafe {
+                        ErrorBorrow::lift(arg0 as u32 as usize)
                     });
-                    let ptr2 = (&raw mut _RET_AREA.0).cast::<u8>();
-                    match result1 {
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
                         Some(e) => {
-                            *ptr2.add(0).cast::<u8>() = (1i32) as u8;
-                            *ptr2.add(1).cast::<u8>() = (e.clone() as i32) as u8;
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            *ptr1.add(1).cast::<u8>() = (e.clone() as i32) as u8;
                         }
                         None => {
-                            *ptr2.add(0).cast::<u8>() = (0i32) as u8;
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
                         }
                     };
-                    ptr2
+                    ptr1
                 }
                 pub trait Guest {
                     type Descriptor: GuestDescriptor;
@@ -3529,7 +3779,7 @@ pub mod exports {
                     ///
                     /// Note that this function is fallible because not all stream-related
                     /// errors are filesystem-related errors.
-                    fn filesystem_error_code(err: &Error) -> Option<ErrorCode>;
+                    fn filesystem_error_code(err: ErrorBorrow<'_>) -> Option<ErrorCode>;
                 }
                 pub trait GuestDescriptor: 'static {
                     #[doc(hidden)]
@@ -3545,7 +3795,7 @@ pub mod exports {
                         #[cfg(target_arch = "wasm32")]
                         {
                             #[link(
-                                wasm_import_module = "[export]wasi:filesystem/types@0.2.9"
+                                wasm_import_module = "[export]wasi:filesystem/types@0.2.6"
                             )]
                             unsafe extern "C" {
                                 #[link_name = "[resource-new]descriptor"]
@@ -3567,7 +3817,7 @@ pub mod exports {
                         #[cfg(target_arch = "wasm32")]
                         {
                             #[link(
-                                wasm_import_module = "[export]wasi:filesystem/types@0.2.9"
+                                wasm_import_module = "[export]wasi:filesystem/types@0.2.6"
                             )]
                             unsafe extern "C" {
                                 #[link_name = "[resource-rep]descriptor"]
@@ -3871,7 +4121,7 @@ pub mod exports {
                         #[cfg(target_arch = "wasm32")]
                         {
                             #[link(
-                                wasm_import_module = "[export]wasi:filesystem/types@0.2.9"
+                                wasm_import_module = "[export]wasi:filesystem/types@0.2.6"
                             )]
                             unsafe extern "C" {
                                 #[link_name = "[resource-new]directory-entry-stream"]
@@ -3893,7 +4143,7 @@ pub mod exports {
                         #[cfg(target_arch = "wasm32")]
                         {
                             #[link(
-                                wasm_import_module = "[export]wasi:filesystem/types@0.2.9"
+                                wasm_import_module = "[export]wasi:filesystem/types@0.2.6"
                             )]
                             unsafe extern "C" {
                                 #[link_name = "[resource-rep]directory-entry-stream"]
@@ -3908,99 +4158,99 @@ pub mod exports {
                     ) -> Result<Option<DirectoryEntry>, ErrorCode>;
                 }
                 #[doc(hidden)]
-                macro_rules! __export_wasi_filesystem_types_0_2_9_cabi {
+                macro_rules! __export_wasi_filesystem_types_0_2_6_cabi {
                     ($ty:ident with_types_in $($path_to_types:tt)*) => {
                         const _ : () = { #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.read-via-stream")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.read-via-stream")]
                         unsafe extern "C" fn
                         export_method_descriptor_read_via_stream(arg0 : * mut u8, arg1 :
                         i64,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_read_via_stream_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1) } }
                         #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.write-via-stream")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.write-via-stream")]
                         unsafe extern "C" fn
                         export_method_descriptor_write_via_stream(arg0 : * mut u8, arg1 :
                         i64,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_write_via_stream_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1) } }
                         #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.append-via-stream")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.append-via-stream")]
                         unsafe extern "C" fn
                         export_method_descriptor_append_via_stream(arg0 : * mut u8,) -> *
                         mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_append_via_stream_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.advise")] unsafe
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.advise")] unsafe
                         extern "C" fn export_method_descriptor_advise(arg0 : * mut u8,
                         arg1 : i64, arg2 : i64, arg3 : i32,) -> * mut u8 { unsafe {
                         $($path_to_types)*:: _export_method_descriptor_advise_cabi::<<$ty
                         as $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.sync-data")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.sync-data")]
                         unsafe extern "C" fn export_method_descriptor_sync_data(arg0 : *
                         mut u8,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_sync_data_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.get-flags")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.get-flags")]
                         unsafe extern "C" fn export_method_descriptor_get_flags(arg0 : *
                         mut u8,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_get_flags_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.get-type")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.get-type")]
                         unsafe extern "C" fn export_method_descriptor_get_type(arg0 : *
                         mut u8,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_get_type_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.set-size")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.set-size")]
                         unsafe extern "C" fn export_method_descriptor_set_size(arg0 : *
                         mut u8, arg1 : i64,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_set_size_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1) } }
                         #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.set-times")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.set-times")]
                         unsafe extern "C" fn export_method_descriptor_set_times(arg0 : *
                         mut u8, arg1 : i32, arg2 : i64, arg3 : i32, arg4 : i32, arg5 :
                         i64, arg6 : i32,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_set_times_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3, arg4, arg5, arg6) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.read")] unsafe
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.read")] unsafe
                         extern "C" fn export_method_descriptor_read(arg0 : * mut u8, arg1
                         : i64, arg2 : i64,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_read_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2) } }
                         #[unsafe (export_name =
-                        "cabi_post_wasi:filesystem/types@0.2.9#[method]descriptor.read")]
+                        "cabi_post_wasi:filesystem/types@0.2.6#[method]descriptor.read")]
                         unsafe extern "C" fn _post_return_method_descriptor_read(arg0 : *
                         mut u8,) { unsafe { $($path_to_types)*::
                         __post_return_method_descriptor_read::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.write")] unsafe
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.write")] unsafe
                         extern "C" fn export_method_descriptor_write(arg0 : * mut u8,
                         arg1 : * mut u8, arg2 : usize, arg3 : i64,) -> * mut u8 { unsafe
                         { $($path_to_types)*::
                         _export_method_descriptor_write_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.read-directory")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.read-directory")]
                         unsafe extern "C" fn export_method_descriptor_read_directory(arg0
                         : * mut u8,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_read_directory_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.sync")] unsafe
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.sync")] unsafe
                         extern "C" fn export_method_descriptor_sync(arg0 : * mut u8,) ->
                         * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_sync_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.create-directory-at")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.create-directory-at")]
                         unsafe extern "C" fn
                         export_method_descriptor_create_directory_at(arg0 : * mut u8,
                         arg1 : * mut u8, arg2 : usize,) -> * mut u8 { unsafe {
@@ -4008,20 +4258,20 @@ pub mod exports {
                         _export_method_descriptor_create_directory_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2) } }
                         #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.stat")] unsafe
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.stat")] unsafe
                         extern "C" fn export_method_descriptor_stat(arg0 : * mut u8,) ->
                         * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_stat_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.stat-at")] unsafe
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.stat-at")] unsafe
                         extern "C" fn export_method_descriptor_stat_at(arg0 : * mut u8,
                         arg1 : i32, arg2 : * mut u8, arg3 : usize,) -> * mut u8 { unsafe
                         { $($path_to_types)*::
                         _export_method_descriptor_stat_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.set-times-at")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.set-times-at")]
                         unsafe extern "C" fn export_method_descriptor_set_times_at(arg0 :
                         * mut u8, arg1 : i32, arg2 : * mut u8, arg3 : usize, arg4 : i32,
                         arg5 : i64, arg6 : i32, arg7 : i32, arg8 : i64, arg9 : i32,) -> *
@@ -4030,7 +4280,7 @@ pub mod exports {
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3, arg4, arg5, arg6, arg7, arg8, arg9) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.link-at")] unsafe
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.link-at")] unsafe
                         extern "C" fn export_method_descriptor_link_at(arg0 : * mut u8,
                         arg1 : i32, arg2 : * mut u8, arg3 : usize, arg4 : i32, arg5 : *
                         mut u8, arg6 : usize,) -> * mut u8 { unsafe {
@@ -4038,28 +4288,28 @@ pub mod exports {
                         _export_method_descriptor_link_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3, arg4, arg5, arg6) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.open-at")] unsafe
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.open-at")] unsafe
                         extern "C" fn export_method_descriptor_open_at(arg0 : * mut u8,
                         arg1 : i32, arg2 : * mut u8, arg3 : usize, arg4 : i32, arg5 :
                         i32,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_open_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3, arg4, arg5) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.readlink-at")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.readlink-at")]
                         unsafe extern "C" fn export_method_descriptor_readlink_at(arg0 :
                         * mut u8, arg1 : * mut u8, arg2 : usize,) -> * mut u8 { unsafe {
                         $($path_to_types)*::
                         _export_method_descriptor_readlink_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2) } }
                         #[unsafe (export_name =
-                        "cabi_post_wasi:filesystem/types@0.2.9#[method]descriptor.readlink-at")]
+                        "cabi_post_wasi:filesystem/types@0.2.6#[method]descriptor.readlink-at")]
                         unsafe extern "C" fn
                         _post_return_method_descriptor_readlink_at(arg0 : * mut u8,) {
                         unsafe { $($path_to_types)*::
                         __post_return_method_descriptor_readlink_at::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.remove-directory-at")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.remove-directory-at")]
                         unsafe extern "C" fn
                         export_method_descriptor_remove_directory_at(arg0 : * mut u8,
                         arg1 : * mut u8, arg2 : usize,) -> * mut u8 { unsafe {
@@ -4067,40 +4317,40 @@ pub mod exports {
                         _export_method_descriptor_remove_directory_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2) } }
                         #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.rename-at")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.rename-at")]
                         unsafe extern "C" fn export_method_descriptor_rename_at(arg0 : *
                         mut u8, arg1 : * mut u8, arg2 : usize, arg3 : i32, arg4 : * mut
                         u8, arg5 : usize,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_rename_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3, arg4, arg5) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.symlink-at")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.symlink-at")]
                         unsafe extern "C" fn export_method_descriptor_symlink_at(arg0 : *
                         mut u8, arg1 : * mut u8, arg2 : usize, arg3 : * mut u8, arg4 :
                         usize,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_symlink_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3, arg4) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.unlink-file-at")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.unlink-file-at")]
                         unsafe extern "C" fn export_method_descriptor_unlink_file_at(arg0
                         : * mut u8, arg1 : * mut u8, arg2 : usize,) -> * mut u8 { unsafe
                         { $($path_to_types)*::
                         _export_method_descriptor_unlink_file_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2) } }
                         #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.is-same-object")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.is-same-object")]
                         unsafe extern "C" fn export_method_descriptor_is_same_object(arg0
                         : * mut u8, arg1 : i32,) -> i32 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_is_same_object_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1) } }
                         #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.metadata-hash")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.metadata-hash")]
                         unsafe extern "C" fn export_method_descriptor_metadata_hash(arg0
                         : * mut u8,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_descriptor_metadata_hash_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0) } } #[unsafe
                         (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]descriptor.metadata-hash-at")]
+                        "wasi:filesystem/types@0.2.6#[method]descriptor.metadata-hash-at")]
                         unsafe extern "C" fn
                         export_method_descriptor_metadata_hash_at(arg0 : * mut u8, arg1 :
                         i32, arg2 : * mut u8, arg3 : usize,) -> * mut u8 { unsafe {
@@ -4108,31 +4358,31 @@ pub mod exports {
                         _export_method_descriptor_metadata_hash_at_cabi::<<$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (arg0, arg1, arg2,
                         arg3) } } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[method]directory-entry-stream.read-directory-entry")]
+                        "wasi:filesystem/types@0.2.6#[method]directory-entry-stream.read-directory-entry")]
                         unsafe extern "C" fn
                         export_method_directory_entry_stream_read_directory_entry(arg0 :
                         * mut u8,) -> * mut u8 { unsafe { $($path_to_types)*::
                         _export_method_directory_entry_stream_read_directory_entry_cabi::<<$ty
                         as $($path_to_types)*:: Guest >::DirectoryEntryStream > (arg0) }
                         } #[unsafe (export_name =
-                        "cabi_post_wasi:filesystem/types@0.2.9#[method]directory-entry-stream.read-directory-entry")]
+                        "cabi_post_wasi:filesystem/types@0.2.6#[method]directory-entry-stream.read-directory-entry")]
                         unsafe extern "C" fn
                         _post_return_method_directory_entry_stream_read_directory_entry(arg0
                         : * mut u8,) { unsafe { $($path_to_types)*::
                         __post_return_method_directory_entry_stream_read_directory_entry::<<$ty
                         as $($path_to_types)*:: Guest >::DirectoryEntryStream > (arg0) }
                         } #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#filesystem-error-code")] unsafe
+                        "wasi:filesystem/types@0.2.6#filesystem-error-code")] unsafe
                         extern "C" fn export_filesystem_error_code(arg0 : i32,) -> * mut
                         u8 { unsafe { $($path_to_types)*::
                         _export_filesystem_error_code_cabi::<$ty > (arg0) } } const _ :
                         () = { #[doc(hidden)] #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[dtor]descriptor")]
+                        "wasi:filesystem/types@0.2.6#[dtor]descriptor")]
                         #[allow(non_snake_case)] unsafe extern "C" fn dtor(rep : * mut
                         u8) { unsafe { $($path_to_types)*:: Descriptor::dtor::< <$ty as
                         $($path_to_types)*:: Guest >::Descriptor > (rep) } } }; const _ :
                         () = { #[doc(hidden)] #[unsafe (export_name =
-                        "wasi:filesystem/types@0.2.9#[dtor]directory-entry-stream")]
+                        "wasi:filesystem/types@0.2.6#[dtor]directory-entry-stream")]
                         #[allow(non_snake_case)] unsafe extern "C" fn dtor(rep : * mut
                         u8) { unsafe { $($path_to_types)*:: DirectoryEntryStream::dtor::<
                         <$ty as $($path_to_types)*:: Guest >::DirectoryEntryStream >
@@ -4140,7 +4390,7 @@ pub mod exports {
                     };
                 }
                 #[doc(hidden)]
-                pub(crate) use __export_wasi_filesystem_types_0_2_9_cabi;
+                pub(crate) use __export_wasi_filesystem_types_0_2_6_cabi;
                 #[repr(align(8))]
                 struct _RetArea([::core::mem::MaybeUninit<u8>; 104]);
                 static mut _RET_AREA: _RetArea = _RetArea(
@@ -4233,21 +4483,21 @@ pub mod exports {
                     fn get_directories() -> _rt::Vec<(Descriptor, _rt::String)>;
                 }
                 #[doc(hidden)]
-                macro_rules! __export_wasi_filesystem_preopens_0_2_9_cabi {
+                macro_rules! __export_wasi_filesystem_preopens_0_2_6_cabi {
                     ($ty:ident with_types_in $($path_to_types:tt)*) => {
                         const _ : () = { #[unsafe (export_name =
-                        "wasi:filesystem/preopens@0.2.9#get-directories")] unsafe extern
+                        "wasi:filesystem/preopens@0.2.6#get-directories")] unsafe extern
                         "C" fn export_get_directories() -> * mut u8 { unsafe {
                         $($path_to_types)*:: _export_get_directories_cabi::<$ty > () } }
                         #[unsafe (export_name =
-                        "cabi_post_wasi:filesystem/preopens@0.2.9#get-directories")]
+                        "cabi_post_wasi:filesystem/preopens@0.2.6#get-directories")]
                         unsafe extern "C" fn _post_return_get_directories(arg0 : * mut
                         u8,) { unsafe { $($path_to_types)*::
                         __post_return_get_directories::<$ty > (arg0) } } };
                     };
                 }
                 #[doc(hidden)]
-                pub(crate) use __export_wasi_filesystem_preopens_0_2_9_cabi;
+                pub(crate) use __export_wasi_filesystem_preopens_0_2_6_cabi;
                 #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
                 #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
                 struct _RetArea(
@@ -4258,6 +4508,1813 @@ pub mod exports {
                 static mut _RET_AREA: _RetArea = _RetArea(
                     [::core::mem::MaybeUninit::uninit(); 2
                         * ::core::mem::size_of::<*const u8>()],
+                );
+            }
+        }
+        pub mod io {
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod error {
+                #[used]
+                #[doc(hidden)]
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
+                /// A resource which represents some error information.
+                ///
+                /// The only method provided by this resource is `to-debug-string`,
+                /// which provides some human-readable information about the error.
+                ///
+                /// In the `wasi:io` package, this resource is returned through the
+                /// `wasi:io/streams/stream-error` type.
+                ///
+                /// To provide more specific error information, other interfaces may
+                /// offer functions to "downcast" this error into more specific types. For example,
+                /// errors returned from streams derived from filesystem types can be described using
+                /// the filesystem's own error-code type. This is done using the function
+                /// `wasi:filesystem/types/filesystem-error-code`, which takes a `borrow<error>`
+                /// parameter and returns an `option<wasi:filesystem/types/error-code>`.
+                ///
+                /// The set of functions which can "downcast" an `error` into a more
+                /// concrete type is open.
+                #[derive(Debug)]
+                #[repr(transparent)]
+                pub struct Error {
+                    handle: _rt::Resource<Error>,
+                }
+                type _ErrorRep<T> = Option<T>;
+                impl Error {
+                    /// Creates a new resource from the specified representation.
+                    ///
+                    /// This function will create a new resource handle by moving `val` onto
+                    /// the heap and then passing that heap pointer to the component model to
+                    /// create a handle. The owned handle is then returned as `Error`.
+                    pub fn new<T: GuestError>(val: T) -> Self {
+                        Self::type_guard::<T>();
+                        let val: _ErrorRep<T> = Some(val);
+                        let ptr: *mut _ErrorRep<T> = _rt::Box::into_raw(
+                            _rt::Box::new(val),
+                        );
+                        unsafe { Self::from_handle(T::_resource_new(ptr.cast())) }
+                    }
+                    /// Gets access to the underlying `T` which represents this resource.
+                    pub fn get<T: GuestError>(&self) -> &T {
+                        let ptr = unsafe { &*self.as_ptr::<T>() };
+                        ptr.as_ref().unwrap()
+                    }
+                    /// Gets mutable access to the underlying `T` which represents this
+                    /// resource.
+                    pub fn get_mut<T: GuestError>(&mut self) -> &mut T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.as_mut().unwrap()
+                    }
+                    /// Consumes this resource and returns the underlying `T`.
+                    pub fn into_inner<T: GuestError>(self) -> T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.take().unwrap()
+                    }
+                    #[doc(hidden)]
+                    pub unsafe fn from_handle(handle: u32) -> Self {
+                        Self {
+                            handle: unsafe { _rt::Resource::from_handle(handle) },
+                        }
+                    }
+                    #[doc(hidden)]
+                    pub fn take_handle(&self) -> u32 {
+                        _rt::Resource::take_handle(&self.handle)
+                    }
+                    #[doc(hidden)]
+                    pub fn handle(&self) -> u32 {
+                        _rt::Resource::handle(&self.handle)
+                    }
+                    #[doc(hidden)]
+                    fn type_guard<T: 'static>() {
+                        use core::any::TypeId;
+                        static mut LAST_TYPE: Option<TypeId> = None;
+                        unsafe {
+                            assert!(! cfg!(target_feature = "atomics"));
+                            let id = TypeId::of::<T>();
+                            match LAST_TYPE {
+                                Some(ty) => {
+                                    assert!(
+                                        ty == id, "cannot use two types with this resource type"
+                                    )
+                                }
+                                None => LAST_TYPE = Some(id),
+                            }
+                        }
+                    }
+                    #[doc(hidden)]
+                    pub unsafe fn dtor<T: 'static>(handle: *mut u8) {
+                        Self::type_guard::<T>();
+                        let _ = unsafe {
+                            _rt::Box::from_raw(handle as *mut _ErrorRep<T>)
+                        };
+                    }
+                    fn as_ptr<T: GuestError>(&self) -> *mut _ErrorRep<T> {
+                        Error::type_guard::<T>();
+                        T::_resource_rep(self.handle()).cast()
+                    }
+                }
+                /// A borrowed version of [`Error`] which represents a borrowed value
+                /// with the lifetime `'a`.
+                #[derive(Debug)]
+                #[repr(transparent)]
+                pub struct ErrorBorrow<'a> {
+                    rep: *mut u8,
+                    _marker: core::marker::PhantomData<&'a Error>,
+                }
+                impl<'a> ErrorBorrow<'a> {
+                    #[doc(hidden)]
+                    pub unsafe fn lift(rep: usize) -> Self {
+                        Self {
+                            rep: rep as *mut u8,
+                            _marker: core::marker::PhantomData,
+                        }
+                    }
+                    /// Gets access to the underlying `T` in this resource.
+                    pub fn get<T: GuestError>(&self) -> &T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.as_ref().unwrap()
+                    }
+                    fn as_ptr<T: 'static>(&self) -> *mut _ErrorRep<T> {
+                        Error::type_guard::<T>();
+                        self.rep.cast()
+                    }
+                }
+                unsafe impl _rt::WasmResource for Error {
+                    #[inline]
+                    unsafe fn drop(_handle: u32) {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        unreachable!();
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/error@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-drop]error"]
+                                fn drop(_: u32);
+                            }
+                            unsafe { drop(_handle) };
+                        }
+                    }
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_error_to_debug_string_cabi<T: GuestError>(
+                    arg0: *mut u8,
+                ) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::to_debug_string(
+                        unsafe { ErrorBorrow::lift(arg0 as u32 as usize) }.get(),
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    let vec2 = (result0.into_bytes()).into_boxed_slice();
+                    let ptr2 = vec2.as_ptr().cast::<u8>();
+                    let len2 = vec2.len();
+                    ::core::mem::forget(vec2);
+                    *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len2;
+                    *ptr1.add(0).cast::<*mut u8>() = ptr2.cast_mut();
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_method_error_to_debug_string<T: GuestError>(
+                    arg0: *mut u8,
+                ) {
+                    let l0 = *arg0.add(0).cast::<*mut u8>();
+                    let l1 = *arg0
+                        .add(::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    _rt::cabi_dealloc(l0, l1, 1);
+                }
+                pub trait Guest {
+                    type Error: GuestError;
+                }
+                pub trait GuestError: 'static {
+                    #[doc(hidden)]
+                    unsafe fn _resource_new(val: *mut u8) -> u32
+                    where
+                        Self: Sized,
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            let _ = val;
+                            unreachable!();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/error@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-new]error"]
+                                fn new(_: *mut u8) -> u32;
+                            }
+                            unsafe { new(val) }
+                        }
+                    }
+                    #[doc(hidden)]
+                    fn _resource_rep(handle: u32) -> *mut u8
+                    where
+                        Self: Sized,
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            let _ = handle;
+                            unreachable!();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/error@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-rep]error"]
+                                fn rep(_: u32) -> *mut u8;
+                            }
+                            unsafe { rep(handle) }
+                        }
+                    }
+                    /// Returns a string that is suitable to assist humans in debugging
+                    /// this error.
+                    ///
+                    /// WARNING: The returned string should not be consumed mechanically!
+                    /// It may change across platforms, hosts, or other implementation
+                    /// details. Parsing this string is a major platform-compatibility
+                    /// hazard.
+                    fn to_debug_string(&self) -> _rt::String;
+                }
+                #[doc(hidden)]
+                macro_rules! __export_wasi_io_error_0_2_6_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "wasi:io/error@0.2.6#[method]error.to-debug-string")] unsafe
+                        extern "C" fn export_method_error_to_debug_string(arg0 : * mut
+                        u8,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_error_to_debug_string_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::Error > (arg0) } } #[unsafe
+                        (export_name =
+                        "cabi_post_wasi:io/error@0.2.6#[method]error.to-debug-string")]
+                        unsafe extern "C" fn
+                        _post_return_method_error_to_debug_string(arg0 : * mut u8,) {
+                        unsafe { $($path_to_types)*::
+                        __post_return_method_error_to_debug_string::<<$ty as
+                        $($path_to_types)*:: Guest >::Error > (arg0) } } const _ : () = {
+                        #[doc(hidden)] #[unsafe (export_name =
+                        "wasi:io/error@0.2.6#[dtor]error")] #[allow(non_snake_case)]
+                        unsafe extern "C" fn dtor(rep : * mut u8) { unsafe {
+                        $($path_to_types)*:: Error::dtor::< <$ty as $($path_to_types)*::
+                        Guest >::Error > (rep) } } }; };
+                    };
+                }
+                #[doc(hidden)]
+                pub(crate) use __export_wasi_io_error_0_2_6_cabi;
+                #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                struct _RetArea(
+                    [::core::mem::MaybeUninit<
+                        u8,
+                    >; 2 * ::core::mem::size_of::<*const u8>()],
+                );
+                static mut _RET_AREA: _RetArea = _RetArea(
+                    [::core::mem::MaybeUninit::uninit(); 2
+                        * ::core::mem::size_of::<*const u8>()],
+                );
+            }
+            /// A poll API intended to let users wait for I/O events on multiple handles
+            /// at once.
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod poll {
+                #[used]
+                #[doc(hidden)]
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
+                /// `pollable` represents a single I/O event which may be ready, or not.
+                #[derive(Debug)]
+                #[repr(transparent)]
+                pub struct Pollable {
+                    handle: _rt::Resource<Pollable>,
+                }
+                type _PollableRep<T> = Option<T>;
+                impl Pollable {
+                    /// Creates a new resource from the specified representation.
+                    ///
+                    /// This function will create a new resource handle by moving `val` onto
+                    /// the heap and then passing that heap pointer to the component model to
+                    /// create a handle. The owned handle is then returned as `Pollable`.
+                    pub fn new<T: GuestPollable>(val: T) -> Self {
+                        Self::type_guard::<T>();
+                        let val: _PollableRep<T> = Some(val);
+                        let ptr: *mut _PollableRep<T> = _rt::Box::into_raw(
+                            _rt::Box::new(val),
+                        );
+                        unsafe { Self::from_handle(T::_resource_new(ptr.cast())) }
+                    }
+                    /// Gets access to the underlying `T` which represents this resource.
+                    pub fn get<T: GuestPollable>(&self) -> &T {
+                        let ptr = unsafe { &*self.as_ptr::<T>() };
+                        ptr.as_ref().unwrap()
+                    }
+                    /// Gets mutable access to the underlying `T` which represents this
+                    /// resource.
+                    pub fn get_mut<T: GuestPollable>(&mut self) -> &mut T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.as_mut().unwrap()
+                    }
+                    /// Consumes this resource and returns the underlying `T`.
+                    pub fn into_inner<T: GuestPollable>(self) -> T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.take().unwrap()
+                    }
+                    #[doc(hidden)]
+                    pub unsafe fn from_handle(handle: u32) -> Self {
+                        Self {
+                            handle: unsafe { _rt::Resource::from_handle(handle) },
+                        }
+                    }
+                    #[doc(hidden)]
+                    pub fn take_handle(&self) -> u32 {
+                        _rt::Resource::take_handle(&self.handle)
+                    }
+                    #[doc(hidden)]
+                    pub fn handle(&self) -> u32 {
+                        _rt::Resource::handle(&self.handle)
+                    }
+                    #[doc(hidden)]
+                    fn type_guard<T: 'static>() {
+                        use core::any::TypeId;
+                        static mut LAST_TYPE: Option<TypeId> = None;
+                        unsafe {
+                            assert!(! cfg!(target_feature = "atomics"));
+                            let id = TypeId::of::<T>();
+                            match LAST_TYPE {
+                                Some(ty) => {
+                                    assert!(
+                                        ty == id, "cannot use two types with this resource type"
+                                    )
+                                }
+                                None => LAST_TYPE = Some(id),
+                            }
+                        }
+                    }
+                    #[doc(hidden)]
+                    pub unsafe fn dtor<T: 'static>(handle: *mut u8) {
+                        Self::type_guard::<T>();
+                        let _ = unsafe {
+                            _rt::Box::from_raw(handle as *mut _PollableRep<T>)
+                        };
+                    }
+                    fn as_ptr<T: GuestPollable>(&self) -> *mut _PollableRep<T> {
+                        Pollable::type_guard::<T>();
+                        T::_resource_rep(self.handle()).cast()
+                    }
+                }
+                /// A borrowed version of [`Pollable`] which represents a borrowed value
+                /// with the lifetime `'a`.
+                #[derive(Debug)]
+                #[repr(transparent)]
+                pub struct PollableBorrow<'a> {
+                    rep: *mut u8,
+                    _marker: core::marker::PhantomData<&'a Pollable>,
+                }
+                impl<'a> PollableBorrow<'a> {
+                    #[doc(hidden)]
+                    pub unsafe fn lift(rep: usize) -> Self {
+                        Self {
+                            rep: rep as *mut u8,
+                            _marker: core::marker::PhantomData,
+                        }
+                    }
+                    /// Gets access to the underlying `T` in this resource.
+                    pub fn get<T: GuestPollable>(&self) -> &T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.as_ref().unwrap()
+                    }
+                    fn as_ptr<T: 'static>(&self) -> *mut _PollableRep<T> {
+                        Pollable::type_guard::<T>();
+                        self.rep.cast()
+                    }
+                }
+                unsafe impl _rt::WasmResource for Pollable {
+                    #[inline]
+                    unsafe fn drop(_handle: u32) {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        unreachable!();
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/poll@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-drop]pollable"]
+                                fn drop(_: u32);
+                            }
+                            unsafe { drop(_handle) };
+                        }
+                    }
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_pollable_ready_cabi<T: GuestPollable>(
+                    arg0: *mut u8,
+                ) -> i32 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::ready(
+                        unsafe { PollableBorrow::lift(arg0 as u32 as usize) }.get(),
+                    );
+                    match result0 {
+                        true => 1,
+                        false => 0,
+                    }
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_pollable_block_cabi<T: GuestPollable>(
+                    arg0: *mut u8,
+                ) {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    T::block(
+                        unsafe { PollableBorrow::lift(arg0 as u32 as usize) }.get(),
+                    );
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_poll_cabi<T: Guest>(
+                    arg0: *mut u8,
+                    arg1: usize,
+                ) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let base1 = arg0;
+                    let len1 = arg1;
+                    let mut result1 = _rt::Vec::with_capacity(len1);
+                    for i in 0..len1 {
+                        let base = base1.add(i * 4);
+                        let e1 = {
+                            let l0 = *base.add(0).cast::<i32>();
+                            unsafe { PollableBorrow::lift(l0 as u32 as usize) }
+                        };
+                        result1.push(e1);
+                    }
+                    _rt::cabi_dealloc(base1, len1 * 4, 4);
+                    let result2 = T::poll(result1);
+                    let ptr3 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    let vec4 = (result2).into_boxed_slice();
+                    let ptr4 = vec4.as_ptr().cast::<u8>();
+                    let len4 = vec4.len();
+                    ::core::mem::forget(vec4);
+                    *ptr3.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len4;
+                    *ptr3.add(0).cast::<*mut u8>() = ptr4.cast_mut();
+                    ptr3
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_poll<T: Guest>(arg0: *mut u8) {
+                    let l0 = *arg0.add(0).cast::<*mut u8>();
+                    let l1 = *arg0
+                        .add(::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    let base2 = l0;
+                    let len2 = l1;
+                    _rt::cabi_dealloc(base2, len2 * 4, 4);
+                }
+                pub trait Guest {
+                    type Pollable: GuestPollable;
+                    /// Poll for completion on a set of pollables.
+                    ///
+                    /// This function takes a list of pollables, which identify I/O sources of
+                    /// interest, and waits until one or more of the events is ready for I/O.
+                    ///
+                    /// The result `list<u32>` contains one or more indices of handles in the
+                    /// argument list that is ready for I/O.
+                    ///
+                    /// This function traps if either:
+                    /// - the list is empty, or:
+                    /// - the list contains more elements than can be indexed with a `u32` value.
+                    ///
+                    /// A timeout can be implemented by adding a pollable from the
+                    /// wasi-clocks API to the list.
+                    ///
+                    /// This function does not return a `result`; polling in itself does not
+                    /// do any I/O so it doesn't fail. If any of the I/O sources identified by
+                    /// the pollables has an error, it is indicated by marking the source as
+                    /// being ready for I/O.
+                    fn poll(in_: _rt::Vec<PollableBorrow<'_>>) -> _rt::Vec<u32>;
+                }
+                pub trait GuestPollable: 'static {
+                    #[doc(hidden)]
+                    unsafe fn _resource_new(val: *mut u8) -> u32
+                    where
+                        Self: Sized,
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            let _ = val;
+                            unreachable!();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/poll@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-new]pollable"]
+                                fn new(_: *mut u8) -> u32;
+                            }
+                            unsafe { new(val) }
+                        }
+                    }
+                    #[doc(hidden)]
+                    fn _resource_rep(handle: u32) -> *mut u8
+                    where
+                        Self: Sized,
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            let _ = handle;
+                            unreachable!();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/poll@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-rep]pollable"]
+                                fn rep(_: u32) -> *mut u8;
+                            }
+                            unsafe { rep(handle) }
+                        }
+                    }
+                    /// Return the readiness of a pollable. This function never blocks.
+                    ///
+                    /// Returns `true` when the pollable is ready, and `false` otherwise.
+                    fn ready(&self) -> bool;
+                    /// `block` returns immediately if the pollable is ready, and otherwise
+                    /// blocks until ready.
+                    ///
+                    /// This function is equivalent to calling `poll.poll` on a list
+                    /// containing only this pollable.
+                    fn block(&self) -> ();
+                }
+                #[doc(hidden)]
+                macro_rules! __export_wasi_io_poll_0_2_6_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "wasi:io/poll@0.2.6#[method]pollable.ready")] unsafe extern "C"
+                        fn export_method_pollable_ready(arg0 : * mut u8,) -> i32 { unsafe
+                        { $($path_to_types)*:: _export_method_pollable_ready_cabi::<<$ty
+                        as $($path_to_types)*:: Guest >::Pollable > (arg0) } } #[unsafe
+                        (export_name = "wasi:io/poll@0.2.6#[method]pollable.block")]
+                        unsafe extern "C" fn export_method_pollable_block(arg0 : * mut
+                        u8,) { unsafe { $($path_to_types)*::
+                        _export_method_pollable_block_cabi::<<$ty as $($path_to_types)*::
+                        Guest >::Pollable > (arg0) } } #[unsafe (export_name =
+                        "wasi:io/poll@0.2.6#poll")] unsafe extern "C" fn export_poll(arg0
+                        : * mut u8, arg1 : usize,) -> * mut u8 { unsafe {
+                        $($path_to_types)*:: _export_poll_cabi::<$ty > (arg0, arg1) } }
+                        #[unsafe (export_name = "cabi_post_wasi:io/poll@0.2.6#poll")]
+                        unsafe extern "C" fn _post_return_poll(arg0 : * mut u8,) { unsafe
+                        { $($path_to_types)*:: __post_return_poll::<$ty > (arg0) } }
+                        const _ : () = { #[doc(hidden)] #[unsafe (export_name =
+                        "wasi:io/poll@0.2.6#[dtor]pollable")] #[allow(non_snake_case)]
+                        unsafe extern "C" fn dtor(rep : * mut u8) { unsafe {
+                        $($path_to_types)*:: Pollable::dtor::< <$ty as
+                        $($path_to_types)*:: Guest >::Pollable > (rep) } } }; };
+                    };
+                }
+                #[doc(hidden)]
+                pub(crate) use __export_wasi_io_poll_0_2_6_cabi;
+                #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                struct _RetArea(
+                    [::core::mem::MaybeUninit<
+                        u8,
+                    >; 2 * ::core::mem::size_of::<*const u8>()],
+                );
+                static mut _RET_AREA: _RetArea = _RetArea(
+                    [::core::mem::MaybeUninit::uninit(); 2
+                        * ::core::mem::size_of::<*const u8>()],
+                );
+            }
+            /// WASI I/O is an I/O abstraction API which is currently focused on providing
+            /// stream types.
+            ///
+            /// In the future, the component model is expected to add built-in stream types;
+            /// when it does, they are expected to subsume this API.
+            #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+            pub mod streams {
+                #[used]
+                #[doc(hidden)]
+                static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
+                use super::super::super::super::_rt;
+                pub type Error = super::super::super::super::exports::wasi::io::error::Error;
+                pub type ErrorBorrow<'a> = super::super::super::super::exports::wasi::io::error::ErrorBorrow<
+                    'a,
+                >;
+                pub type Pollable = super::super::super::super::exports::wasi::io::poll::Pollable;
+                pub type PollableBorrow<'a> = super::super::super::super::exports::wasi::io::poll::PollableBorrow<
+                    'a,
+                >;
+                /// An error for input-stream and output-stream operations.
+                pub enum StreamError {
+                    /// The last operation (a write or flush) failed before completion.
+                    ///
+                    /// More information is available in the `error` payload.
+                    ///
+                    /// After this, the stream will be closed. All future operations return
+                    /// `stream-error::closed`.
+                    LastOperationFailed(Error),
+                    /// The stream is closed: no more input will be accepted by the
+                    /// stream. A closed output-stream will return this error on all
+                    /// future operations.
+                    Closed,
+                }
+                impl ::core::fmt::Debug for StreamError {
+                    fn fmt(
+                        &self,
+                        f: &mut ::core::fmt::Formatter<'_>,
+                    ) -> ::core::fmt::Result {
+                        match self {
+                            StreamError::LastOperationFailed(e) => {
+                                f.debug_tuple("StreamError::LastOperationFailed")
+                                    .field(e)
+                                    .finish()
+                            }
+                            StreamError::Closed => {
+                                f.debug_tuple("StreamError::Closed").finish()
+                            }
+                        }
+                    }
+                }
+                impl ::core::fmt::Display for StreamError {
+                    fn fmt(
+                        &self,
+                        f: &mut ::core::fmt::Formatter<'_>,
+                    ) -> ::core::fmt::Result {
+                        write!(f, "{:?}", self)
+                    }
+                }
+                impl std::error::Error for StreamError {}
+                /// An input bytestream.
+                ///
+                /// `input-stream`s are *non-blocking* to the extent practical on underlying
+                /// platforms. I/O operations always return promptly; if fewer bytes are
+                /// promptly available than requested, they return the number of bytes promptly
+                /// available, which could even be zero. To wait for data to be available,
+                /// use the `subscribe` function to obtain a `pollable` which can be polled
+                /// for using `wasi:io/poll`.
+                #[derive(Debug)]
+                #[repr(transparent)]
+                pub struct InputStream {
+                    handle: _rt::Resource<InputStream>,
+                }
+                type _InputStreamRep<T> = Option<T>;
+                impl InputStream {
+                    /// Creates a new resource from the specified representation.
+                    ///
+                    /// This function will create a new resource handle by moving `val` onto
+                    /// the heap and then passing that heap pointer to the component model to
+                    /// create a handle. The owned handle is then returned as `InputStream`.
+                    pub fn new<T: GuestInputStream>(val: T) -> Self {
+                        Self::type_guard::<T>();
+                        let val: _InputStreamRep<T> = Some(val);
+                        let ptr: *mut _InputStreamRep<T> = _rt::Box::into_raw(
+                            _rt::Box::new(val),
+                        );
+                        unsafe { Self::from_handle(T::_resource_new(ptr.cast())) }
+                    }
+                    /// Gets access to the underlying `T` which represents this resource.
+                    pub fn get<T: GuestInputStream>(&self) -> &T {
+                        let ptr = unsafe { &*self.as_ptr::<T>() };
+                        ptr.as_ref().unwrap()
+                    }
+                    /// Gets mutable access to the underlying `T` which represents this
+                    /// resource.
+                    pub fn get_mut<T: GuestInputStream>(&mut self) -> &mut T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.as_mut().unwrap()
+                    }
+                    /// Consumes this resource and returns the underlying `T`.
+                    pub fn into_inner<T: GuestInputStream>(self) -> T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.take().unwrap()
+                    }
+                    #[doc(hidden)]
+                    pub unsafe fn from_handle(handle: u32) -> Self {
+                        Self {
+                            handle: unsafe { _rt::Resource::from_handle(handle) },
+                        }
+                    }
+                    #[doc(hidden)]
+                    pub fn take_handle(&self) -> u32 {
+                        _rt::Resource::take_handle(&self.handle)
+                    }
+                    #[doc(hidden)]
+                    pub fn handle(&self) -> u32 {
+                        _rt::Resource::handle(&self.handle)
+                    }
+                    #[doc(hidden)]
+                    fn type_guard<T: 'static>() {
+                        use core::any::TypeId;
+                        static mut LAST_TYPE: Option<TypeId> = None;
+                        unsafe {
+                            assert!(! cfg!(target_feature = "atomics"));
+                            let id = TypeId::of::<T>();
+                            match LAST_TYPE {
+                                Some(ty) => {
+                                    assert!(
+                                        ty == id, "cannot use two types with this resource type"
+                                    )
+                                }
+                                None => LAST_TYPE = Some(id),
+                            }
+                        }
+                    }
+                    #[doc(hidden)]
+                    pub unsafe fn dtor<T: 'static>(handle: *mut u8) {
+                        Self::type_guard::<T>();
+                        let _ = unsafe {
+                            _rt::Box::from_raw(handle as *mut _InputStreamRep<T>)
+                        };
+                    }
+                    fn as_ptr<T: GuestInputStream>(&self) -> *mut _InputStreamRep<T> {
+                        InputStream::type_guard::<T>();
+                        T::_resource_rep(self.handle()).cast()
+                    }
+                }
+                /// A borrowed version of [`InputStream`] which represents a borrowed value
+                /// with the lifetime `'a`.
+                #[derive(Debug)]
+                #[repr(transparent)]
+                pub struct InputStreamBorrow<'a> {
+                    rep: *mut u8,
+                    _marker: core::marker::PhantomData<&'a InputStream>,
+                }
+                impl<'a> InputStreamBorrow<'a> {
+                    #[doc(hidden)]
+                    pub unsafe fn lift(rep: usize) -> Self {
+                        Self {
+                            rep: rep as *mut u8,
+                            _marker: core::marker::PhantomData,
+                        }
+                    }
+                    /// Gets access to the underlying `T` in this resource.
+                    pub fn get<T: GuestInputStream>(&self) -> &T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.as_ref().unwrap()
+                    }
+                    fn as_ptr<T: 'static>(&self) -> *mut _InputStreamRep<T> {
+                        InputStream::type_guard::<T>();
+                        self.rep.cast()
+                    }
+                }
+                unsafe impl _rt::WasmResource for InputStream {
+                    #[inline]
+                    unsafe fn drop(_handle: u32) {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        unreachable!();
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/streams@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-drop]input-stream"]
+                                fn drop(_: u32);
+                            }
+                            unsafe { drop(_handle) };
+                        }
+                    }
+                }
+                /// An output bytestream.
+                ///
+                /// `output-stream`s are *non-blocking* to the extent practical on
+                /// underlying platforms. Except where specified otherwise, I/O operations also
+                /// always return promptly, after the number of bytes that can be written
+                /// promptly, which could even be zero. To wait for the stream to be ready to
+                /// accept data, the `subscribe` function to obtain a `pollable` which can be
+                /// polled for using `wasi:io/poll`.
+                ///
+                /// Dropping an `output-stream` while there's still an active write in
+                /// progress may result in the data being lost. Before dropping the stream,
+                /// be sure to fully flush your writes.
+                #[derive(Debug)]
+                #[repr(transparent)]
+                pub struct OutputStream {
+                    handle: _rt::Resource<OutputStream>,
+                }
+                type _OutputStreamRep<T> = Option<T>;
+                impl OutputStream {
+                    /// Creates a new resource from the specified representation.
+                    ///
+                    /// This function will create a new resource handle by moving `val` onto
+                    /// the heap and then passing that heap pointer to the component model to
+                    /// create a handle. The owned handle is then returned as `OutputStream`.
+                    pub fn new<T: GuestOutputStream>(val: T) -> Self {
+                        Self::type_guard::<T>();
+                        let val: _OutputStreamRep<T> = Some(val);
+                        let ptr: *mut _OutputStreamRep<T> = _rt::Box::into_raw(
+                            _rt::Box::new(val),
+                        );
+                        unsafe { Self::from_handle(T::_resource_new(ptr.cast())) }
+                    }
+                    /// Gets access to the underlying `T` which represents this resource.
+                    pub fn get<T: GuestOutputStream>(&self) -> &T {
+                        let ptr = unsafe { &*self.as_ptr::<T>() };
+                        ptr.as_ref().unwrap()
+                    }
+                    /// Gets mutable access to the underlying `T` which represents this
+                    /// resource.
+                    pub fn get_mut<T: GuestOutputStream>(&mut self) -> &mut T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.as_mut().unwrap()
+                    }
+                    /// Consumes this resource and returns the underlying `T`.
+                    pub fn into_inner<T: GuestOutputStream>(self) -> T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.take().unwrap()
+                    }
+                    #[doc(hidden)]
+                    pub unsafe fn from_handle(handle: u32) -> Self {
+                        Self {
+                            handle: unsafe { _rt::Resource::from_handle(handle) },
+                        }
+                    }
+                    #[doc(hidden)]
+                    pub fn take_handle(&self) -> u32 {
+                        _rt::Resource::take_handle(&self.handle)
+                    }
+                    #[doc(hidden)]
+                    pub fn handle(&self) -> u32 {
+                        _rt::Resource::handle(&self.handle)
+                    }
+                    #[doc(hidden)]
+                    fn type_guard<T: 'static>() {
+                        use core::any::TypeId;
+                        static mut LAST_TYPE: Option<TypeId> = None;
+                        unsafe {
+                            assert!(! cfg!(target_feature = "atomics"));
+                            let id = TypeId::of::<T>();
+                            match LAST_TYPE {
+                                Some(ty) => {
+                                    assert!(
+                                        ty == id, "cannot use two types with this resource type"
+                                    )
+                                }
+                                None => LAST_TYPE = Some(id),
+                            }
+                        }
+                    }
+                    #[doc(hidden)]
+                    pub unsafe fn dtor<T: 'static>(handle: *mut u8) {
+                        Self::type_guard::<T>();
+                        let _ = unsafe {
+                            _rt::Box::from_raw(handle as *mut _OutputStreamRep<T>)
+                        };
+                    }
+                    fn as_ptr<T: GuestOutputStream>(&self) -> *mut _OutputStreamRep<T> {
+                        OutputStream::type_guard::<T>();
+                        T::_resource_rep(self.handle()).cast()
+                    }
+                }
+                /// A borrowed version of [`OutputStream`] which represents a borrowed value
+                /// with the lifetime `'a`.
+                #[derive(Debug)]
+                #[repr(transparent)]
+                pub struct OutputStreamBorrow<'a> {
+                    rep: *mut u8,
+                    _marker: core::marker::PhantomData<&'a OutputStream>,
+                }
+                impl<'a> OutputStreamBorrow<'a> {
+                    #[doc(hidden)]
+                    pub unsafe fn lift(rep: usize) -> Self {
+                        Self {
+                            rep: rep as *mut u8,
+                            _marker: core::marker::PhantomData,
+                        }
+                    }
+                    /// Gets access to the underlying `T` in this resource.
+                    pub fn get<T: GuestOutputStream>(&self) -> &T {
+                        let ptr = unsafe { &mut *self.as_ptr::<T>() };
+                        ptr.as_ref().unwrap()
+                    }
+                    fn as_ptr<T: 'static>(&self) -> *mut _OutputStreamRep<T> {
+                        OutputStream::type_guard::<T>();
+                        self.rep.cast()
+                    }
+                }
+                unsafe impl _rt::WasmResource for OutputStream {
+                    #[inline]
+                    unsafe fn drop(_handle: u32) {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        unreachable!();
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/streams@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-drop]output-stream"]
+                                fn drop(_: u32);
+                            }
+                            unsafe { drop(_handle) };
+                        }
+                    }
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_input_stream_read_cabi<T: GuestInputStream>(
+                    arg0: *mut u8,
+                    arg1: i64,
+                ) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::read(
+                        unsafe { InputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        arg1 as u64,
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(e) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                            let vec2 = (e).into_boxed_slice();
+                            let ptr2 = vec2.as_ptr().cast::<u8>();
+                            let len2 = vec2.len();
+                            ::core::mem::forget(vec2);
+                            *ptr1
+                                .add(2 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>() = len2;
+                            *ptr1
+                                .add(::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>() = ptr2.cast_mut();
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1
+                                        .add(::core::mem::size_of::<*const u8>())
+                                        .cast::<u8>() = (0i32) as u8;
+                                    *ptr1
+                                        .add(4 + 1 * ::core::mem::size_of::<*const u8>())
+                                        .cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1
+                                        .add(::core::mem::size_of::<*const u8>())
+                                        .cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_method_input_stream_read<
+                    T: GuestInputStream,
+                >(arg0: *mut u8) {
+                    let l0 = i32::from(*arg0.add(0).cast::<u8>());
+                    match l0 {
+                        0 => {
+                            let l1 = *arg0
+                                .add(::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l2 = *arg0
+                                .add(2 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>();
+                            let base3 = l1;
+                            let len3 = l2;
+                            _rt::cabi_dealloc(base3, len3 * 1, 1);
+                        }
+                        _ => {}
+                    }
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_input_stream_blocking_read_cabi<
+                    T: GuestInputStream,
+                >(arg0: *mut u8, arg1: i64) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::blocking_read(
+                        unsafe { InputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        arg1 as u64,
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(e) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                            let vec2 = (e).into_boxed_slice();
+                            let ptr2 = vec2.as_ptr().cast::<u8>();
+                            let len2 = vec2.len();
+                            ::core::mem::forget(vec2);
+                            *ptr1
+                                .add(2 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>() = len2;
+                            *ptr1
+                                .add(::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>() = ptr2.cast_mut();
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1
+                                        .add(::core::mem::size_of::<*const u8>())
+                                        .cast::<u8>() = (0i32) as u8;
+                                    *ptr1
+                                        .add(4 + 1 * ::core::mem::size_of::<*const u8>())
+                                        .cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1
+                                        .add(::core::mem::size_of::<*const u8>())
+                                        .cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_method_input_stream_blocking_read<
+                    T: GuestInputStream,
+                >(arg0: *mut u8) {
+                    let l0 = i32::from(*arg0.add(0).cast::<u8>());
+                    match l0 {
+                        0 => {
+                            let l1 = *arg0
+                                .add(::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>();
+                            let l2 = *arg0
+                                .add(2 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>();
+                            let base3 = l1;
+                            let len3 = l2;
+                            _rt::cabi_dealloc(base3, len3 * 1, 1);
+                        }
+                        _ => {}
+                    }
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_input_stream_skip_cabi<T: GuestInputStream>(
+                    arg0: *mut u8,
+                    arg1: i64,
+                ) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::skip(
+                        unsafe { InputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        arg1 as u64,
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(e) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                            *ptr1.add(8).cast::<i64>() = _rt::as_i64(e);
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(8).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(12).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(8).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_input_stream_blocking_skip_cabi<
+                    T: GuestInputStream,
+                >(arg0: *mut u8, arg1: i64) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::blocking_skip(
+                        unsafe { InputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        arg1 as u64,
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(e) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                            *ptr1.add(8).cast::<i64>() = _rt::as_i64(e);
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(8).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(12).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(8).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_input_stream_subscribe_cabi<
+                    T: GuestInputStream,
+                >(arg0: *mut u8) -> i32 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::subscribe(
+                        unsafe { InputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                    );
+                    (result0).take_handle() as i32
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_check_write_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::check_write(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(e) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                            *ptr1.add(8).cast::<i64>() = _rt::as_i64(e);
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(8).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(12).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(8).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_write_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8, arg1: *mut u8, arg2: usize) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let len0 = arg2;
+                    let result1 = T::write(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        _rt::Vec::from_raw_parts(arg1.cast(), len0, len0),
+                    );
+                    let ptr2 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result1 {
+                        Ok(_) => {
+                            *ptr2.add(0).cast::<u8>() = (0i32) as u8;
+                        }
+                        Err(e) => {
+                            *ptr2.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr2.add(4).cast::<u8>() = (0i32) as u8;
+                                    *ptr2.add(8).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr2.add(4).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr2
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_blocking_write_and_flush_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8, arg1: *mut u8, arg2: usize) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let len0 = arg2;
+                    let result1 = T::blocking_write_and_flush(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        _rt::Vec::from_raw_parts(arg1.cast(), len0, len0),
+                    );
+                    let ptr2 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result1 {
+                        Ok(_) => {
+                            *ptr2.add(0).cast::<u8>() = (0i32) as u8;
+                        }
+                        Err(e) => {
+                            *ptr2.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr2.add(4).cast::<u8>() = (0i32) as u8;
+                                    *ptr2.add(8).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr2.add(4).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr2
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_flush_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::flush(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(_) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(4).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(8).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(4).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_blocking_flush_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::blocking_flush(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(_) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(4).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(8).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(4).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_subscribe_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8) -> i32 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::subscribe(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                    );
+                    (result0).take_handle() as i32
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_write_zeroes_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8, arg1: i64) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::write_zeroes(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        arg1 as u64,
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(_) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(4).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(8).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(4).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_blocking_write_zeroes_and_flush_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8, arg1: i64) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::blocking_write_zeroes_and_flush(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        arg1 as u64,
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(_) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(4).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(8).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(4).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_splice_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8, arg1: i32, arg2: i64) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::splice(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        unsafe { InputStreamBorrow::lift(arg1 as u32 as usize) },
+                        arg2 as u64,
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(e) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                            *ptr1.add(8).cast::<i64>() = _rt::as_i64(e);
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(8).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(12).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(8).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_method_output_stream_blocking_splice_cabi<
+                    T: GuestOutputStream,
+                >(arg0: *mut u8, arg1: i32, arg2: i64) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::blocking_splice(
+                        unsafe { OutputStreamBorrow::lift(arg0 as u32 as usize) }.get(),
+                        unsafe { InputStreamBorrow::lift(arg1 as u32 as usize) },
+                        arg2 as u64,
+                    );
+                    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    match result0 {
+                        Ok(e) => {
+                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
+                            *ptr1.add(8).cast::<i64>() = _rt::as_i64(e);
+                        }
+                        Err(e) => {
+                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
+                            match e {
+                                StreamError::LastOperationFailed(e) => {
+                                    *ptr1.add(8).cast::<u8>() = (0i32) as u8;
+                                    *ptr1.add(12).cast::<i32>() = (e).take_handle() as i32;
+                                }
+                                StreamError::Closed => {
+                                    *ptr1.add(8).cast::<u8>() = (1i32) as u8;
+                                }
+                            }
+                        }
+                    };
+                    ptr1
+                }
+                pub trait Guest {
+                    type InputStream: GuestInputStream;
+                    type OutputStream: GuestOutputStream;
+                }
+                pub trait GuestInputStream: 'static {
+                    #[doc(hidden)]
+                    unsafe fn _resource_new(val: *mut u8) -> u32
+                    where
+                        Self: Sized,
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            let _ = val;
+                            unreachable!();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/streams@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-new]input-stream"]
+                                fn new(_: *mut u8) -> u32;
+                            }
+                            unsafe { new(val) }
+                        }
+                    }
+                    #[doc(hidden)]
+                    fn _resource_rep(handle: u32) -> *mut u8
+                    where
+                        Self: Sized,
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            let _ = handle;
+                            unreachable!();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/streams@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-rep]input-stream"]
+                                fn rep(_: u32) -> *mut u8;
+                            }
+                            unsafe { rep(handle) }
+                        }
+                    }
+                    /// Perform a non-blocking read from the stream.
+                    ///
+                    /// When the source of a `read` is binary data, the bytes from the source
+                    /// are returned verbatim. When the source of a `read` is known to the
+                    /// implementation to be text, bytes containing the UTF-8 encoding of the
+                    /// text are returned.
+                    ///
+                    /// This function returns a list of bytes containing the read data,
+                    /// when successful. The returned list will contain up to `len` bytes;
+                    /// it may return fewer than requested, but not more. The list is
+                    /// empty when no bytes are available for reading at this time. The
+                    /// pollable given by `subscribe` will be ready when more bytes are
+                    /// available.
+                    ///
+                    /// This function fails with a `stream-error` when the operation
+                    /// encounters an error, giving `last-operation-failed`, or when the
+                    /// stream is closed, giving `closed`.
+                    ///
+                    /// When the caller gives a `len` of 0, it represents a request to
+                    /// read 0 bytes. If the stream is still open, this call should
+                    /// succeed and return an empty list, or otherwise fail with `closed`.
+                    ///
+                    /// The `len` parameter is a `u64`, which could represent a list of u8 which
+                    /// is not possible to allocate in wasm32, or not desirable to allocate as
+                    /// as a return value by the callee. The callee may return a list of bytes
+                    /// less than `len` in size while more bytes are available for reading.
+                    fn read(&self, len: u64) -> Result<_rt::Vec<u8>, StreamError>;
+                    /// Read bytes from a stream, after blocking until at least one byte can
+                    /// be read. Except for blocking, behavior is identical to `read`.
+                    fn blocking_read(
+                        &self,
+                        len: u64,
+                    ) -> Result<_rt::Vec<u8>, StreamError>;
+                    /// Skip bytes from a stream. Returns number of bytes skipped.
+                    ///
+                    /// Behaves identical to `read`, except instead of returning a list
+                    /// of bytes, returns the number of bytes consumed from the stream.
+                    fn skip(&self, len: u64) -> Result<u64, StreamError>;
+                    /// Skip bytes from a stream, after blocking until at least one byte
+                    /// can be skipped. Except for blocking behavior, identical to `skip`.
+                    fn blocking_skip(&self, len: u64) -> Result<u64, StreamError>;
+                    /// Create a `pollable` which will resolve once either the specified stream
+                    /// has bytes available to read or the other end of the stream has been
+                    /// closed.
+                    /// The created `pollable` is a child resource of the `input-stream`.
+                    /// Implementations may trap if the `input-stream` is dropped before
+                    /// all derived `pollable`s created with this function are dropped.
+                    fn subscribe(&self) -> Pollable;
+                }
+                pub trait GuestOutputStream: 'static {
+                    #[doc(hidden)]
+                    unsafe fn _resource_new(val: *mut u8) -> u32
+                    where
+                        Self: Sized,
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            let _ = val;
+                            unreachable!();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/streams@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-new]output-stream"]
+                                fn new(_: *mut u8) -> u32;
+                            }
+                            unsafe { new(val) }
+                        }
+                    }
+                    #[doc(hidden)]
+                    fn _resource_rep(handle: u32) -> *mut u8
+                    where
+                        Self: Sized,
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            let _ = handle;
+                            unreachable!();
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            #[link(wasm_import_module = "[export]wasi:io/streams@0.2.6")]
+                            unsafe extern "C" {
+                                #[link_name = "[resource-rep]output-stream"]
+                                fn rep(_: u32) -> *mut u8;
+                            }
+                            unsafe { rep(handle) }
+                        }
+                    }
+                    /// Check readiness for writing. This function never blocks.
+                    ///
+                    /// Returns the number of bytes permitted for the next call to `write`,
+                    /// or an error. Calling `write` with more bytes than this function has
+                    /// permitted will trap.
+                    ///
+                    /// When this function returns 0 bytes, the `subscribe` pollable will
+                    /// become ready when this function will report at least 1 byte, or an
+                    /// error.
+                    fn check_write(&self) -> Result<u64, StreamError>;
+                    /// Perform a write. This function never blocks.
+                    ///
+                    /// When the destination of a `write` is binary data, the bytes from
+                    /// `contents` are written verbatim. When the destination of a `write` is
+                    /// known to the implementation to be text, the bytes of `contents` are
+                    /// transcoded from UTF-8 into the encoding of the destination and then
+                    /// written.
+                    ///
+                    /// Precondition: check-write gave permit of Ok(n) and contents has a
+                    /// length of less than or equal to n. Otherwise, this function will trap.
+                    ///
+                    /// returns Err(closed) without writing if the stream has closed since
+                    /// the last call to check-write provided a permit.
+                    fn write(&self, contents: _rt::Vec<u8>) -> Result<(), StreamError>;
+                    /// Perform a write of up to 4096 bytes, and then flush the stream. Block
+                    /// until all of these operations are complete, or an error occurs.
+                    ///
+                    /// This is a convenience wrapper around the use of `check-write`,
+                    /// `subscribe`, `write`, and `flush`, and is implemented with the
+                    /// following pseudo-code:
+                    ///
+                    /// ```text
+                    /// let pollable = this.subscribe();
+                    /// while !contents.is_empty() {
+                    ///     // Wait for the stream to become writable
+                    ///     pollable.block();
+                    ///     let Ok(n) = this.check-write(); // eliding error handling
+                    ///     let len = min(n, contents.len());
+                    ///     let (chunk, rest) = contents.split_at(len);
+                    ///     this.write(chunk  );            // eliding error handling
+                    ///     contents = rest;
+                    /// }
+                    /// this.flush();
+                    /// // Wait for completion of `flush`
+                    /// pollable.block();
+                    /// // Check for any errors that arose during `flush`
+                    /// let _ = this.check-write();         // eliding error handling
+                    /// ```
+                    fn blocking_write_and_flush(
+                        &self,
+                        contents: _rt::Vec<u8>,
+                    ) -> Result<(), StreamError>;
+                    /// Request to flush buffered output. This function never blocks.
+                    ///
+                    /// This tells the output-stream that the caller intends any buffered
+                    /// output to be flushed. the output which is expected to be flushed
+                    /// is all that has been passed to `write` prior to this call.
+                    ///
+                    /// Upon calling this function, the `output-stream` will not accept any
+                    /// writes (`check-write` will return `ok(0)`) until the flush has
+                    /// completed. The `subscribe` pollable will become ready when the
+                    /// flush has completed and the stream can accept more writes.
+                    fn flush(&self) -> Result<(), StreamError>;
+                    /// Request to flush buffered output, and block until flush completes
+                    /// and stream is ready for writing again.
+                    fn blocking_flush(&self) -> Result<(), StreamError>;
+                    /// Create a `pollable` which will resolve once the output-stream
+                    /// is ready for more writing, or an error has occurred. When this
+                    /// pollable is ready, `check-write` will return `ok(n)` with n>0, or an
+                    /// error.
+                    ///
+                    /// If the stream is closed, this pollable is always ready immediately.
+                    ///
+                    /// The created `pollable` is a child resource of the `output-stream`.
+                    /// Implementations may trap if the `output-stream` is dropped before
+                    /// all derived `pollable`s created with this function are dropped.
+                    fn subscribe(&self) -> Pollable;
+                    /// Write zeroes to a stream.
+                    ///
+                    /// This should be used precisely like `write` with the exact same
+                    /// preconditions (must use check-write first), but instead of
+                    /// passing a list of bytes, you simply pass the number of zero-bytes
+                    /// that should be written.
+                    fn write_zeroes(&self, len: u64) -> Result<(), StreamError>;
+                    /// Perform a write of up to 4096 zeroes, and then flush the stream.
+                    /// Block until all of these operations are complete, or an error
+                    /// occurs.
+                    ///
+                    /// This is a convenience wrapper around the use of `check-write`,
+                    /// `subscribe`, `write-zeroes`, and `flush`, and is implemented with
+                    /// the following pseudo-code:
+                    ///
+                    /// ```text
+                    /// let pollable = this.subscribe();
+                    /// while num_zeroes != 0 {
+                    ///     // Wait for the stream to become writable
+                    ///     pollable.block();
+                    ///     let Ok(n) = this.check-write(); // eliding error handling
+                    ///     let len = min(n, num_zeroes);
+                    ///     this.write-zeroes(len);         // eliding error handling
+                    ///     num_zeroes -= len;
+                    /// }
+                    /// this.flush();
+                    /// // Wait for completion of `flush`
+                    /// pollable.block();
+                    /// // Check for any errors that arose during `flush`
+                    /// let _ = this.check-write();         // eliding error handling
+                    /// ```
+                    fn blocking_write_zeroes_and_flush(
+                        &self,
+                        len: u64,
+                    ) -> Result<(), StreamError>;
+                    /// Read from one stream and write to another.
+                    ///
+                    /// The behavior of splice is equivalent to:
+                    /// 1. calling `check-write` on the `output-stream`
+                    /// 2. calling `read` on the `input-stream` with the smaller of the
+                    /// `check-write` permitted length and the `len` provided to `splice`
+                    /// 3. calling `write` on the `output-stream` with that read data.
+                    ///
+                    /// Any error reported by the call to `check-write`, `read`, or
+                    /// `write` ends the splice and reports that error.
+                    ///
+                    /// This function returns the number of bytes transferred; it may be less
+                    /// than `len`.
+                    fn splice(
+                        &self,
+                        src: InputStreamBorrow<'_>,
+                        len: u64,
+                    ) -> Result<u64, StreamError>;
+                    /// Read from one stream and write to another, with blocking.
+                    ///
+                    /// This is similar to `splice`, except that it blocks until the
+                    /// `output-stream` is ready for writing, and the `input-stream`
+                    /// is ready for reading, before performing the `splice`.
+                    fn blocking_splice(
+                        &self,
+                        src: InputStreamBorrow<'_>,
+                        len: u64,
+                    ) -> Result<u64, StreamError>;
+                }
+                #[doc(hidden)]
+                macro_rules! __export_wasi_io_streams_0_2_6_cabi {
+                    ($ty:ident with_types_in $($path_to_types:tt)*) => {
+                        const _ : () = { #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[method]input-stream.read")] unsafe extern
+                        "C" fn export_method_input_stream_read(arg0 : * mut u8, arg1 :
+                        i64,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_input_stream_read_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::InputStream > (arg0, arg1) } }
+                        #[unsafe (export_name =
+                        "cabi_post_wasi:io/streams@0.2.6#[method]input-stream.read")]
+                        unsafe extern "C" fn _post_return_method_input_stream_read(arg0 :
+                        * mut u8,) { unsafe { $($path_to_types)*::
+                        __post_return_method_input_stream_read::<<$ty as
+                        $($path_to_types)*:: Guest >::InputStream > (arg0) } } #[unsafe
+                        (export_name =
+                        "wasi:io/streams@0.2.6#[method]input-stream.blocking-read")]
+                        unsafe extern "C" fn
+                        export_method_input_stream_blocking_read(arg0 : * mut u8, arg1 :
+                        i64,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_input_stream_blocking_read_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::InputStream > (arg0, arg1) } }
+                        #[unsafe (export_name =
+                        "cabi_post_wasi:io/streams@0.2.6#[method]input-stream.blocking-read")]
+                        unsafe extern "C" fn
+                        _post_return_method_input_stream_blocking_read(arg0 : * mut u8,)
+                        { unsafe { $($path_to_types)*::
+                        __post_return_method_input_stream_blocking_read::<<$ty as
+                        $($path_to_types)*:: Guest >::InputStream > (arg0) } } #[unsafe
+                        (export_name =
+                        "wasi:io/streams@0.2.6#[method]input-stream.skip")] unsafe extern
+                        "C" fn export_method_input_stream_skip(arg0 : * mut u8, arg1 :
+                        i64,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_input_stream_skip_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::InputStream > (arg0, arg1) } }
+                        #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[method]input-stream.blocking-skip")]
+                        unsafe extern "C" fn
+                        export_method_input_stream_blocking_skip(arg0 : * mut u8, arg1 :
+                        i64,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_input_stream_blocking_skip_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::InputStream > (arg0, arg1) } }
+                        #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[method]input-stream.subscribe")] unsafe
+                        extern "C" fn export_method_input_stream_subscribe(arg0 : * mut
+                        u8,) -> i32 { unsafe { $($path_to_types)*::
+                        _export_method_input_stream_subscribe_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::InputStream > (arg0) } } #[unsafe
+                        (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.check-write")]
+                        unsafe extern "C" fn export_method_output_stream_check_write(arg0
+                        : * mut u8,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_output_stream_check_write_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (arg0) } } #[unsafe
+                        (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.write")] unsafe
+                        extern "C" fn export_method_output_stream_write(arg0 : * mut u8,
+                        arg1 : * mut u8, arg2 : usize,) -> * mut u8 { unsafe {
+                        $($path_to_types)*::
+                        _export_method_output_stream_write_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (arg0, arg1, arg2) }
+                        } #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.blocking-write-and-flush")]
+                        unsafe extern "C" fn
+                        export_method_output_stream_blocking_write_and_flush(arg0 : * mut
+                        u8, arg1 : * mut u8, arg2 : usize,) -> * mut u8 { unsafe {
+                        $($path_to_types)*::
+                        _export_method_output_stream_blocking_write_and_flush_cabi::<<$ty
+                        as $($path_to_types)*:: Guest >::OutputStream > (arg0, arg1,
+                        arg2) } } #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.flush")] unsafe
+                        extern "C" fn export_method_output_stream_flush(arg0 : * mut u8,)
+                        -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_output_stream_flush_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (arg0) } } #[unsafe
+                        (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.blocking-flush")]
+                        unsafe extern "C" fn
+                        export_method_output_stream_blocking_flush(arg0 : * mut u8,) -> *
+                        mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_output_stream_blocking_flush_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (arg0) } } #[unsafe
+                        (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.subscribe")] unsafe
+                        extern "C" fn export_method_output_stream_subscribe(arg0 : * mut
+                        u8,) -> i32 { unsafe { $($path_to_types)*::
+                        _export_method_output_stream_subscribe_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (arg0) } } #[unsafe
+                        (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.write-zeroes")]
+                        unsafe extern "C" fn
+                        export_method_output_stream_write_zeroes(arg0 : * mut u8, arg1 :
+                        i64,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_output_stream_write_zeroes_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (arg0, arg1) } }
+                        #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.blocking-write-zeroes-and-flush")]
+                        unsafe extern "C" fn
+                        export_method_output_stream_blocking_write_zeroes_and_flush(arg0
+                        : * mut u8, arg1 : i64,) -> * mut u8 { unsafe {
+                        $($path_to_types)*::
+                        _export_method_output_stream_blocking_write_zeroes_and_flush_cabi::<<$ty
+                        as $($path_to_types)*:: Guest >::OutputStream > (arg0, arg1) } }
+                        #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.splice")] unsafe
+                        extern "C" fn export_method_output_stream_splice(arg0 : * mut u8,
+                        arg1 : i32, arg2 : i64,) -> * mut u8 { unsafe {
+                        $($path_to_types)*::
+                        _export_method_output_stream_splice_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (arg0, arg1, arg2) }
+                        } #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[method]output-stream.blocking-splice")]
+                        unsafe extern "C" fn
+                        export_method_output_stream_blocking_splice(arg0 : * mut u8, arg1
+                        : i32, arg2 : i64,) -> * mut u8 { unsafe { $($path_to_types)*::
+                        _export_method_output_stream_blocking_splice_cabi::<<$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (arg0, arg1, arg2) }
+                        } const _ : () = { #[doc(hidden)] #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[dtor]input-stream")]
+                        #[allow(non_snake_case)] unsafe extern "C" fn dtor(rep : * mut
+                        u8) { unsafe { $($path_to_types)*:: InputStream::dtor::< <$ty as
+                        $($path_to_types)*:: Guest >::InputStream > (rep) } } }; const _
+                        : () = { #[doc(hidden)] #[unsafe (export_name =
+                        "wasi:io/streams@0.2.6#[dtor]output-stream")]
+                        #[allow(non_snake_case)] unsafe extern "C" fn dtor(rep : * mut
+                        u8) { unsafe { $($path_to_types)*:: OutputStream::dtor::< <$ty as
+                        $($path_to_types)*:: Guest >::OutputStream > (rep) } } }; };
+                    };
+                }
+                #[doc(hidden)]
+                pub(crate) use __export_wasi_io_streams_0_2_6_cabi;
+                #[repr(align(8))]
+                struct _RetArea(
+                    [::core::mem::MaybeUninit<
+                        u8,
+                    >; 8 + 2 * ::core::mem::size_of::<*const u8>()],
+                );
+                static mut _RET_AREA: _RetArea = _RetArea(
+                    [::core::mem::MaybeUninit::uninit(); 8
+                        + 2 * ::core::mem::size_of::<*const u8>()],
                 );
             }
         }
@@ -4488,10 +6545,25 @@ macro_rules! __export_fs_provider_impl {
     };
     ($ty:ident with_types_in $($path_to_types_root:tt)*) => {
         $($path_to_types_root)*::
-        exports::wasi::filesystem::types::__export_wasi_filesystem_types_0_2_9_cabi!($ty
+        exports::wasi::io::error::__export_wasi_io_error_0_2_6_cabi!($ty with_types_in
+        $($path_to_types_root)*:: exports::wasi::io::error); $($path_to_types_root)*::
+        exports::wasi::io::poll::__export_wasi_io_poll_0_2_6_cabi!($ty with_types_in
+        $($path_to_types_root)*:: exports::wasi::io::poll); $($path_to_types_root)*::
+        exports::wasi::io::streams::__export_wasi_io_streams_0_2_6_cabi!($ty
+        with_types_in $($path_to_types_root)*:: exports::wasi::io::streams);
+        $($path_to_types_root)*::
+        exports::wasi::cli::stdin::__export_wasi_cli_stdin_0_2_6_cabi!($ty with_types_in
+        $($path_to_types_root)*:: exports::wasi::cli::stdin); $($path_to_types_root)*::
+        exports::wasi::cli::stdout::__export_wasi_cli_stdout_0_2_6_cabi!($ty
+        with_types_in $($path_to_types_root)*:: exports::wasi::cli::stdout);
+        $($path_to_types_root)*::
+        exports::wasi::cli::stderr::__export_wasi_cli_stderr_0_2_6_cabi!($ty
+        with_types_in $($path_to_types_root)*:: exports::wasi::cli::stderr);
+        $($path_to_types_root)*::
+        exports::wasi::filesystem::types::__export_wasi_filesystem_types_0_2_6_cabi!($ty
         with_types_in $($path_to_types_root)*:: exports::wasi::filesystem::types);
         $($path_to_types_root)*::
-        exports::wasi::filesystem::preopens::__export_wasi_filesystem_preopens_0_2_9_cabi!($ty
+        exports::wasi::filesystem::preopens::__export_wasi_filesystem_preopens_0_2_6_cabi!($ty
         with_types_in $($path_to_types_root)*:: exports::wasi::filesystem::preopens);
     };
 }
@@ -4503,23 +6575,23 @@ pub(crate) use __export_fs_provider_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 4685] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xcb#\x01A\x02\x01A\x13\
-\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method\
-]error.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\x04\0\
-\x08pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollable\
-.ready\x01\x02\x01@\x01\x04self\x01\x01\0\x04\0\x16[method]pollable.block\x01\x03\
-\x01p\x01\x01py\x01@\x01\x02in\x04\0\x05\x04\0\x04poll\x01\x06\x03\0\x12wasi:io/\
-poll@0.2.9\x05\x01\x02\x03\0\0\x05error\x02\x03\0\x01\x08pollable\x01B(\x02\x03\x02\
-\x01\x02\x04\0\x05error\x03\0\0\x02\x03\x02\x01\x03\x04\0\x08pollable\x03\0\x02\x01\
-i\x01\x01q\x02\x15last-operation-failed\x01\x04\0\x06closed\0\0\x04\0\x0cstream-\
-error\x03\0\x05\x04\0\x0cinput-stream\x03\x01\x04\0\x0doutput-stream\x03\x01\x01\
-h\x07\x01p}\x01j\x01\x0a\x01\x06\x01@\x02\x04self\x09\x03lenw\0\x0b\x04\0\x19[me\
-thod]input-stream.read\x01\x0c\x04\0\"[method]input-stream.blocking-read\x01\x0c\
-\x01j\x01w\x01\x06\x01@\x02\x04self\x09\x03lenw\0\x0d\x04\0\x19[method]input-str\
-eam.skip\x01\x0e\x04\0\"[method]input-stream.blocking-skip\x01\x0e\x01i\x03\x01@\
-\x01\x04self\x09\0\x0f\x04\0\x1e[method]input-stream.subscribe\x01\x10\x01h\x08\x01\
-@\x01\x04self\x11\0\x0d\x04\0![method]output-stream.check-write\x01\x12\x01j\0\x01\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 6257] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xef/\x01A\x02\x01A%\x01\
+B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method]err\
+or.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.6\x05\0\x01B\x0a\x04\0\x08\
+pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollable.rea\
+dy\x01\x02\x01@\x01\x04self\x01\x01\0\x04\0\x16[method]pollable.block\x01\x03\x01\
+p\x01\x01py\x01@\x01\x02in\x04\0\x05\x04\0\x04poll\x01\x06\x03\0\x12wasi:io/poll\
+@0.2.6\x05\x01\x02\x03\0\0\x05error\x02\x03\0\x01\x08pollable\x01B(\x02\x03\x02\x01\
+\x02\x04\0\x05error\x03\0\0\x02\x03\x02\x01\x03\x04\0\x08pollable\x03\0\x02\x01i\
+\x01\x01q\x02\x15last-operation-failed\x01\x04\0\x06closed\0\0\x04\0\x0cstream-e\
+rror\x03\0\x05\x04\0\x0cinput-stream\x03\x01\x04\0\x0doutput-stream\x03\x01\x01h\
+\x07\x01p}\x01j\x01\x0a\x01\x06\x01@\x02\x04self\x09\x03lenw\0\x0b\x04\0\x19[met\
+hod]input-stream.read\x01\x0c\x04\0\"[method]input-stream.blocking-read\x01\x0c\x01\
+j\x01w\x01\x06\x01@\x02\x04self\x09\x03lenw\0\x0d\x04\0\x19[method]input-stream.\
+skip\x01\x0e\x04\0\"[method]input-stream.blocking-skip\x01\x0e\x01i\x03\x01@\x01\
+\x04self\x09\0\x0f\x04\0\x1e[method]input-stream.subscribe\x01\x10\x01h\x08\x01@\
+\x01\x04self\x11\0\x0d\x04\0![method]output-stream.check-write\x01\x12\x01j\0\x01\
 \x06\x01@\x02\x04self\x11\x08contents\x0a\0\x13\x04\0\x1b[method]output-stream.w\
 rite\x01\x14\x04\0.[method]output-stream.blocking-write-and-flush\x01\x14\x01@\x01\
 \x04self\x11\0\x13\x04\0\x1b[method]output-stream.flush\x01\x15\x04\0$[method]ou\
@@ -4528,72 +6600,106 @@ utput-stream.subscribe\x01\x16\x01@\x02\x04self\x11\x03lenw\0\x13\x04\0\"[method
 ]output-stream.write-zeroes\x01\x17\x04\05[method]output-stream.blocking-write-z\
 eroes-and-flush\x01\x17\x01@\x03\x04self\x11\x03src\x09\x03lenw\0\x0d\x04\0\x1c[\
 method]output-stream.splice\x01\x18\x04\0%[method]output-stream.blocking-splice\x01\
-\x18\x03\0\x15wasi:io/streams@0.2.9\x05\x04\x01B\x05\x01r\x02\x07secondsw\x0bnan\
-osecondsy\x04\0\x08datetime\x03\0\0\x01@\0\0\x01\x04\0\x03now\x01\x02\x04\0\x0ar\
-esolution\x01\x02\x03\0\x1cwasi:clocks/wall-clock@0.2.9\x05\x05\x02\x03\0\x02\x0c\
-input-stream\x02\x03\0\x02\x0doutput-stream\x02\x03\0\x02\x05error\x02\x03\0\x03\
-\x08datetime\x01Br\x02\x03\x02\x01\x06\x04\0\x0cinput-stream\x03\0\0\x02\x03\x02\
-\x01\x07\x04\0\x0doutput-stream\x03\0\x02\x02\x03\x02\x01\x08\x04\0\x05error\x03\
-\0\x04\x02\x03\x02\x01\x09\x04\0\x08datetime\x03\0\x06\x01w\x04\0\x08filesize\x03\
-\0\x08\x01m\x08\x07unknown\x0cblock-device\x10character-device\x09directory\x04f\
-ifo\x0dsymbolic-link\x0cregular-file\x06socket\x04\0\x0fdescriptor-type\x03\0\x0a\
-\x01n\x06\x04read\x05write\x13file-integrity-sync\x13data-integrity-sync\x14requ\
-ested-write-sync\x10mutate-directory\x04\0\x10descriptor-flags\x03\0\x0c\x01n\x01\
-\x0esymlink-follow\x04\0\x0apath-flags\x03\0\x0e\x01n\x04\x06create\x09directory\
-\x09exclusive\x08truncate\x04\0\x0aopen-flags\x03\0\x10\x01w\x04\0\x0alink-count\
-\x03\0\x12\x01k\x07\x01r\x06\x04type\x0b\x0alink-count\x13\x04size\x09\x15data-a\
-ccess-timestamp\x14\x1bdata-modification-timestamp\x14\x17status-change-timestam\
-p\x14\x04\0\x0fdescriptor-stat\x03\0\x15\x01q\x03\x09no-change\0\0\x03now\0\0\x09\
-timestamp\x01\x07\0\x04\0\x0dnew-timestamp\x03\0\x17\x01r\x02\x04type\x0b\x04nam\
-es\x04\0\x0fdirectory-entry\x03\0\x19\x01m%\x06access\x0bwould-block\x07already\x0e\
-bad-descriptor\x04busy\x08deadlock\x05quota\x05exist\x0efile-too-large\x15illega\
-l-byte-sequence\x0bin-progress\x0binterrupted\x07invalid\x02io\x0cis-directory\x04\
-loop\x0etoo-many-links\x0cmessage-size\x0dname-too-long\x09no-device\x08no-entry\
-\x07no-lock\x13insufficient-memory\x12insufficient-space\x0dnot-directory\x09not\
--empty\x0fnot-recoverable\x0bunsupported\x06no-tty\x0eno-such-device\x08overflow\
-\x0dnot-permitted\x04pipe\x09read-only\x0cinvalid-seek\x0etext-file-busy\x0ccros\
-s-device\x04\0\x0aerror-code\x03\0\x1b\x01m\x06\x06normal\x0asequential\x06rando\
-m\x09will-need\x09dont-need\x08no-reuse\x04\0\x06advice\x03\0\x1d\x01r\x02\x05lo\
-werw\x05upperw\x04\0\x13metadata-hash-value\x03\0\x1f\x04\0\x0adescriptor\x03\x01\
-\x04\0\x16directory-entry-stream\x03\x01\x01h!\x01i\x01\x01j\x01$\x01\x1c\x01@\x02\
-\x04self#\x06offset\x09\0%\x04\0\"[method]descriptor.read-via-stream\x01&\x01i\x03\
-\x01j\x01'\x01\x1c\x01@\x02\x04self#\x06offset\x09\0(\x04\0#[method]descriptor.w\
-rite-via-stream\x01)\x01@\x01\x04self#\0(\x04\0$[method]descriptor.append-via-st\
-ream\x01*\x01j\0\x01\x1c\x01@\x04\x04self#\x06offset\x09\x06length\x09\x06advice\
-\x1e\0+\x04\0\x19[method]descriptor.advise\x01,\x01@\x01\x04self#\0+\x04\0\x1c[m\
-ethod]descriptor.sync-data\x01-\x01j\x01\x0d\x01\x1c\x01@\x01\x04self#\0.\x04\0\x1c\
-[method]descriptor.get-flags\x01/\x01j\x01\x0b\x01\x1c\x01@\x01\x04self#\00\x04\0\
-\x1b[method]descriptor.get-type\x011\x01@\x02\x04self#\x04size\x09\0+\x04\0\x1b[\
-method]descriptor.set-size\x012\x01@\x03\x04self#\x15data-access-timestamp\x18\x1b\
-data-modification-timestamp\x18\0+\x04\0\x1c[method]descriptor.set-times\x013\x01\
-p}\x01o\x024\x7f\x01j\x015\x01\x1c\x01@\x03\x04self#\x06length\x09\x06offset\x09\
-\06\x04\0\x17[method]descriptor.read\x017\x01j\x01\x09\x01\x1c\x01@\x03\x04self#\
-\x06buffer4\x06offset\x09\08\x04\0\x18[method]descriptor.write\x019\x01i\"\x01j\x01\
-:\x01\x1c\x01@\x01\x04self#\0;\x04\0![method]descriptor.read-directory\x01<\x04\0\
-\x17[method]descriptor.sync\x01-\x01@\x02\x04self#\x04paths\0+\x04\0&[method]des\
-criptor.create-directory-at\x01=\x01j\x01\x16\x01\x1c\x01@\x01\x04self#\0>\x04\0\
-\x17[method]descriptor.stat\x01?\x01@\x03\x04self#\x0apath-flags\x0f\x04paths\0>\
-\x04\0\x1a[method]descriptor.stat-at\x01@\x01@\x05\x04self#\x0apath-flags\x0f\x04\
-paths\x15data-access-timestamp\x18\x1bdata-modification-timestamp\x18\0+\x04\0\x1f\
-[method]descriptor.set-times-at\x01A\x01@\x05\x04self#\x0eold-path-flags\x0f\x08\
-old-paths\x0enew-descriptor#\x08new-paths\0+\x04\0\x1a[method]descriptor.link-at\
-\x01B\x01i!\x01j\x01\xc3\0\x01\x1c\x01@\x05\x04self#\x0apath-flags\x0f\x04paths\x0a\
-open-flags\x11\x05flags\x0d\0\xc4\0\x04\0\x1a[method]descriptor.open-at\x01E\x01\
-j\x01s\x01\x1c\x01@\x02\x04self#\x04paths\0\xc6\0\x04\0\x1e[method]descriptor.re\
-adlink-at\x01G\x04\0&[method]descriptor.remove-directory-at\x01=\x01@\x04\x04sel\
-f#\x08old-paths\x0enew-descriptor#\x08new-paths\0+\x04\0\x1c[method]descriptor.r\
-ename-at\x01H\x01@\x03\x04self#\x08old-paths\x08new-paths\0+\x04\0\x1d[method]de\
-scriptor.symlink-at\x01I\x04\0![method]descriptor.unlink-file-at\x01=\x01@\x02\x04\
+\x18\x03\0\x15wasi:io/streams@0.2.6\x05\x04\x02\x03\0\x02\x0cinput-stream\x01B\x05\
+\x02\x03\x02\x01\x05\x04\0\x0cinput-stream\x03\0\0\x01i\x01\x01@\0\0\x02\x04\0\x09\
+get-stdin\x01\x03\x03\0\x14wasi:cli/stdin@0.2.6\x05\x06\x02\x03\0\x02\x0doutput-\
+stream\x01B\x05\x02\x03\x02\x01\x07\x04\0\x0doutput-stream\x03\0\0\x01i\x01\x01@\
+\0\0\x02\x04\0\x0aget-stdout\x01\x03\x03\0\x15wasi:cli/stdout@0.2.6\x05\x08\x01B\
+\x05\x02\x03\x02\x01\x07\x04\0\x0doutput-stream\x03\0\0\x01i\x01\x01@\0\0\x02\x04\
+\0\x0aget-stderr\x01\x03\x03\0\x15wasi:cli/stderr@0.2.6\x05\x09\x01B\x05\x01r\x02\
+\x07secondsw\x0bnanosecondsy\x04\0\x08datetime\x03\0\0\x01@\0\0\x01\x04\0\x03now\
+\x01\x02\x04\0\x0aresolution\x01\x02\x03\0\x1cwasi:clocks/wall-clock@0.2.6\x05\x0a\
+\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method\
+]error.to-debug-string\x01\x02\x04\0\x13wasi:io/error@0.2.6\x05\x0b\x01B\x0a\x04\
+\0\x08pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollab\
+le.ready\x01\x02\x01@\x01\x04self\x01\x01\0\x04\0\x16[method]pollable.block\x01\x03\
+\x01p\x01\x01py\x01@\x01\x02in\x04\0\x05\x04\0\x04poll\x01\x06\x04\0\x12wasi:io/\
+poll@0.2.6\x05\x0c\x01B(\x02\x03\x02\x01\x02\x04\0\x05error\x03\0\0\x02\x03\x02\x01\
+\x03\x04\0\x08pollable\x03\0\x02\x01i\x01\x01q\x02\x15last-operation-failed\x01\x04\
+\0\x06closed\0\0\x04\0\x0cstream-error\x03\0\x05\x04\0\x0cinput-stream\x03\x01\x04\
+\0\x0doutput-stream\x03\x01\x01h\x07\x01p}\x01j\x01\x0a\x01\x06\x01@\x02\x04self\
+\x09\x03lenw\0\x0b\x04\0\x19[method]input-stream.read\x01\x0c\x04\0\"[method]inp\
+ut-stream.blocking-read\x01\x0c\x01j\x01w\x01\x06\x01@\x02\x04self\x09\x03lenw\0\
+\x0d\x04\0\x19[method]input-stream.skip\x01\x0e\x04\0\"[method]input-stream.bloc\
+king-skip\x01\x0e\x01i\x03\x01@\x01\x04self\x09\0\x0f\x04\0\x1e[method]input-str\
+eam.subscribe\x01\x10\x01h\x08\x01@\x01\x04self\x11\0\x0d\x04\0![method]output-s\
+tream.check-write\x01\x12\x01j\0\x01\x06\x01@\x02\x04self\x11\x08contents\x0a\0\x13\
+\x04\0\x1b[method]output-stream.write\x01\x14\x04\0.[method]output-stream.blocki\
+ng-write-and-flush\x01\x14\x01@\x01\x04self\x11\0\x13\x04\0\x1b[method]output-st\
+ream.flush\x01\x15\x04\0$[method]output-stream.blocking-flush\x01\x15\x01@\x01\x04\
+self\x11\0\x0f\x04\0\x1f[method]output-stream.subscribe\x01\x16\x01@\x02\x04self\
+\x11\x03lenw\0\x13\x04\0\"[method]output-stream.write-zeroes\x01\x17\x04\05[meth\
+od]output-stream.blocking-write-zeroes-and-flush\x01\x17\x01@\x03\x04self\x11\x03\
+src\x09\x03lenw\0\x0d\x04\0\x1c[method]output-stream.splice\x01\x18\x04\0%[metho\
+d]output-stream.blocking-splice\x01\x18\x04\0\x15wasi:io/streams@0.2.6\x05\x0d\x01\
+B\x05\x02\x03\x02\x01\x05\x04\0\x0cinput-stream\x03\0\0\x01i\x01\x01@\0\0\x02\x04\
+\0\x09get-stdin\x01\x03\x04\0\x14wasi:cli/stdin@0.2.6\x05\x0e\x01B\x05\x02\x03\x02\
+\x01\x07\x04\0\x0doutput-stream\x03\0\0\x01i\x01\x01@\0\0\x02\x04\0\x0aget-stdou\
+t\x01\x03\x04\0\x15wasi:cli/stdout@0.2.6\x05\x0f\x01B\x05\x02\x03\x02\x01\x07\x04\
+\0\x0doutput-stream\x03\0\0\x01i\x01\x01@\0\0\x02\x04\0\x0aget-stderr\x01\x03\x04\
+\0\x15wasi:cli/stderr@0.2.6\x05\x10\x02\x03\0\x09\x05error\x02\x03\0\x06\x08date\
+time\x01Br\x02\x03\x02\x01\x05\x04\0\x0cinput-stream\x03\0\0\x02\x03\x02\x01\x07\
+\x04\0\x0doutput-stream\x03\0\x02\x02\x03\x02\x01\x11\x04\0\x05error\x03\0\x04\x02\
+\x03\x02\x01\x12\x04\0\x08datetime\x03\0\x06\x01w\x04\0\x08filesize\x03\0\x08\x01\
+m\x08\x07unknown\x0cblock-device\x10character-device\x09directory\x04fifo\x0dsym\
+bolic-link\x0cregular-file\x06socket\x04\0\x0fdescriptor-type\x03\0\x0a\x01n\x06\
+\x04read\x05write\x13file-integrity-sync\x13data-integrity-sync\x14requested-wri\
+te-sync\x10mutate-directory\x04\0\x10descriptor-flags\x03\0\x0c\x01n\x01\x0esyml\
+ink-follow\x04\0\x0apath-flags\x03\0\x0e\x01n\x04\x06create\x09directory\x09excl\
+usive\x08truncate\x04\0\x0aopen-flags\x03\0\x10\x01w\x04\0\x0alink-count\x03\0\x12\
+\x01k\x07\x01r\x06\x04type\x0b\x0alink-count\x13\x04size\x09\x15data-access-time\
+stamp\x14\x1bdata-modification-timestamp\x14\x17status-change-timestamp\x14\x04\0\
+\x0fdescriptor-stat\x03\0\x15\x01q\x03\x09no-change\0\0\x03now\0\0\x09timestamp\x01\
+\x07\0\x04\0\x0dnew-timestamp\x03\0\x17\x01r\x02\x04type\x0b\x04names\x04\0\x0fd\
+irectory-entry\x03\0\x19\x01m%\x06access\x0bwould-block\x07already\x0ebad-descri\
+ptor\x04busy\x08deadlock\x05quota\x05exist\x0efile-too-large\x15illegal-byte-seq\
+uence\x0bin-progress\x0binterrupted\x07invalid\x02io\x0cis-directory\x04loop\x0e\
+too-many-links\x0cmessage-size\x0dname-too-long\x09no-device\x08no-entry\x07no-l\
+ock\x13insufficient-memory\x12insufficient-space\x0dnot-directory\x09not-empty\x0f\
+not-recoverable\x0bunsupported\x06no-tty\x0eno-such-device\x08overflow\x0dnot-pe\
+rmitted\x04pipe\x09read-only\x0cinvalid-seek\x0etext-file-busy\x0ccross-device\x04\
+\0\x0aerror-code\x03\0\x1b\x01m\x06\x06normal\x0asequential\x06random\x09will-ne\
+ed\x09dont-need\x08no-reuse\x04\0\x06advice\x03\0\x1d\x01r\x02\x05lowerw\x05uppe\
+rw\x04\0\x13metadata-hash-value\x03\0\x1f\x04\0\x0adescriptor\x03\x01\x04\0\x16d\
+irectory-entry-stream\x03\x01\x01h!\x01i\x01\x01j\x01$\x01\x1c\x01@\x02\x04self#\
+\x06offset\x09\0%\x04\0\"[method]descriptor.read-via-stream\x01&\x01i\x03\x01j\x01\
+'\x01\x1c\x01@\x02\x04self#\x06offset\x09\0(\x04\0#[method]descriptor.write-via-\
+stream\x01)\x01@\x01\x04self#\0(\x04\0$[method]descriptor.append-via-stream\x01*\
+\x01j\0\x01\x1c\x01@\x04\x04self#\x06offset\x09\x06length\x09\x06advice\x1e\0+\x04\
+\0\x19[method]descriptor.advise\x01,\x01@\x01\x04self#\0+\x04\0\x1c[method]descr\
+iptor.sync-data\x01-\x01j\x01\x0d\x01\x1c\x01@\x01\x04self#\0.\x04\0\x1c[method]\
+descriptor.get-flags\x01/\x01j\x01\x0b\x01\x1c\x01@\x01\x04self#\00\x04\0\x1b[me\
+thod]descriptor.get-type\x011\x01@\x02\x04self#\x04size\x09\0+\x04\0\x1b[method]\
+descriptor.set-size\x012\x01@\x03\x04self#\x15data-access-timestamp\x18\x1bdata-\
+modification-timestamp\x18\0+\x04\0\x1c[method]descriptor.set-times\x013\x01p}\x01\
+o\x024\x7f\x01j\x015\x01\x1c\x01@\x03\x04self#\x06length\x09\x06offset\x09\06\x04\
+\0\x17[method]descriptor.read\x017\x01j\x01\x09\x01\x1c\x01@\x03\x04self#\x06buf\
+fer4\x06offset\x09\08\x04\0\x18[method]descriptor.write\x019\x01i\"\x01j\x01:\x01\
+\x1c\x01@\x01\x04self#\0;\x04\0![method]descriptor.read-directory\x01<\x04\0\x17\
+[method]descriptor.sync\x01-\x01@\x02\x04self#\x04paths\0+\x04\0&[method]descrip\
+tor.create-directory-at\x01=\x01j\x01\x16\x01\x1c\x01@\x01\x04self#\0>\x04\0\x17\
+[method]descriptor.stat\x01?\x01@\x03\x04self#\x0apath-flags\x0f\x04paths\0>\x04\
+\0\x1a[method]descriptor.stat-at\x01@\x01@\x05\x04self#\x0apath-flags\x0f\x04pat\
+hs\x15data-access-timestamp\x18\x1bdata-modification-timestamp\x18\0+\x04\0\x1f[\
+method]descriptor.set-times-at\x01A\x01@\x05\x04self#\x0eold-path-flags\x0f\x08o\
+ld-paths\x0enew-descriptor#\x08new-paths\0+\x04\0\x1a[method]descriptor.link-at\x01\
+B\x01i!\x01j\x01\xc3\0\x01\x1c\x01@\x05\x04self#\x0apath-flags\x0f\x04paths\x0ao\
+pen-flags\x11\x05flags\x0d\0\xc4\0\x04\0\x1a[method]descriptor.open-at\x01E\x01j\
+\x01s\x01\x1c\x01@\x02\x04self#\x04paths\0\xc6\0\x04\0\x1e[method]descriptor.rea\
+dlink-at\x01G\x04\0&[method]descriptor.remove-directory-at\x01=\x01@\x04\x04self\
+#\x08old-paths\x0enew-descriptor#\x08new-paths\0+\x04\0\x1c[method]descriptor.re\
+name-at\x01H\x01@\x03\x04self#\x08old-paths\x08new-paths\0+\x04\0\x1d[method]des\
+criptor.symlink-at\x01I\x04\0![method]descriptor.unlink-file-at\x01=\x01@\x02\x04\
 self#\x05other#\0\x7f\x04\0![method]descriptor.is-same-object\x01J\x01j\x01\x20\x01\
 \x1c\x01@\x01\x04self#\0\xcb\0\x04\0\x20[method]descriptor.metadata-hash\x01L\x01\
 @\x03\x04self#\x0apath-flags\x0f\x04paths\0\xcb\0\x04\0#[method]descriptor.metad\
 ata-hash-at\x01M\x01h\"\x01k\x1a\x01j\x01\xcf\0\x01\x1c\x01@\x01\x04self\xce\0\0\
 \xd0\0\x04\03[method]directory-entry-stream.read-directory-entry\x01Q\x01h\x05\x01\
 k\x1c\x01@\x01\x03err\xd2\0\0\xd3\0\x04\0\x15filesystem-error-code\x01T\x04\0\x1b\
-wasi:filesystem/types@0.2.9\x05\x0a\x02\x03\0\x04\x0adescriptor\x01B\x07\x02\x03\
-\x02\x01\x0b\x04\0\x0adescriptor\x03\0\0\x01i\x01\x01o\x02\x02s\x01p\x03\x01@\0\0\
-\x04\x04\0\x0fget-directories\x01\x05\x04\0\x1ewasi:filesystem/preopens@0.2.9\x05\
-\x0c\x04\0\x20c2w:fs-wrapper/fs-provider@0.1.0\x04\0\x0b\x11\x01\0\x0bfs-provide\
+wasi:filesystem/types@0.2.6\x05\x13\x02\x03\0\x0d\x0adescriptor\x01B\x07\x02\x03\
+\x02\x01\x14\x04\0\x0adescriptor\x03\0\0\x01i\x01\x01o\x02\x02s\x01p\x03\x01@\0\0\
+\x04\x04\0\x0fget-directories\x01\x05\x04\0\x1ewasi:filesystem/preopens@0.2.6\x05\
+\x15\x04\0\x20c2w:fs-wrapper/fs-provider@0.1.0\x04\0\x0b\x11\x01\0\x0bfs-provide\
 r\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10\
 wit-bindgen-rust\x060.41.0";
 #[inline(never)]
