@@ -155,6 +155,7 @@ func doInit() error {
 				bPos = 0
 			}
 			///////////////////////////////////////////////////////////////////////
+
 		} else {
 			// Legacy WASI P1 mode: wait for host signal and read info file
 			// WASI-related filesystems
