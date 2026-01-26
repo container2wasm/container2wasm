@@ -166,7 +166,7 @@ impl GuestDescriptor for RootDescriptor {
         _flags: DescriptorFlags,
     ) -> Result<Descriptor, ErrorCode> {
         match find_file(&path) {
-            Some(idx) => Ok(Descriptor::new(FileDescriptor { index: idx })),
+            Some(idx) => Ok(Descriptor::new(AnyDescriptor::File(FileDescriptor { index: idx }))),
             None => Err(ErrorCode::NoEntry),
         }
     }
