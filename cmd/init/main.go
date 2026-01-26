@@ -542,6 +542,35 @@ func parseWasi2Config(configD []byte) (info runtimeFlags) {
 	return
 }
 
+// getRuntimeFlagsFromCLI builds runtime flags from wasi:cli interfaces.
+// In wasip2 mode, args and env come from the WASI runtime, not a config file.
+func getRuntimeFlagsFromCLI() runtimeFlags {
+	var info runtimeFlags
+
+	// Get args from os.Args (maps to wasi:cli/environment.get-arguments)
+	// Convention: first arg after program name is entrypoint, rest are args
+	// Example: wasmtime run out.wasm -- /bin/sh -c "echo hello"
+	//          os.Args = ["/bin/sh", "-c", "echo hello"]
+	args := os.Args[1:] // Skip program name (the wasm itself)
+	if len(args) > 0 {
+		info.entrypoint = []string{args[0]}
+		if len(args) > 1 {
+			info.args = args[1:]
+		}
+	}
+
+	// Get env from os.Environ (maps to wasi:cli/environment.get-environment)
+	// Filter out internal vars
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "WASI_") {
+			continue // Skip WASI internal vars
+		}
+		info.env = append(info.env, e)
+	}
+
+	return info
+}
+
 func patchSpec(s runtimespec.Spec, info runtimeFlags, imageConfig imagespec.Image) runtimespec.Spec {
 	s.Mounts = append(s.Mounts, info.mounts...)
 	s.Process.Env = append(s.Process.Env, info.env...)
