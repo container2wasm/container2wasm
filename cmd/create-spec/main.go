@@ -41,6 +41,7 @@ func main() {
 		noVmtouch         = flag.Bool("no-vmtouch", false, "do not perform vmtouch")
 		externalBundle    = flag.Bool("external-bundle", false, "provide bundle externally during runtime")
 		noBinfmt          = flag.Bool("no-binfmt", false, "do not install binfmt")
+		wasiP2            = flag.Bool("wasi-p2", false, "enable WASI Preview 2 mode")
 	)
 	flag.Parse()
 	args := flag.Args()
@@ -64,11 +65,11 @@ func main() {
 		if err := os.WriteFile("image.json", cfgD, 0600); err != nil {
 			panic(err)
 		}
-		if err := createSpec(bytes.NewReader(cfgD), rootfs, *debug, *debugInit, *imageConfigPath, *runtimeConfigPath, *imageRootfsPath, *noVmtouch, *noBinfmt); err != nil {
+		if err := createSpec(bytes.NewReader(cfgD), rootfs, *debug, *debugInit, *imageConfigPath, *runtimeConfigPath, *imageRootfsPath, *noVmtouch, *noBinfmt, *wasiP2); err != nil {
 			panic(err)
 		}
 	} else {
-		bootConfig, err := generateBootConfig(*debug, *debugInit, *imageConfigPath, *runtimeConfigPath, *imageRootfsPath, *noVmtouch, "", true)
+		bootConfig, err := generateBootConfig(*debug, *debugInit, *imageConfigPath, *runtimeConfigPath, *imageRootfsPath, *noVmtouch, "", true, *wasiP2)
 		if err != nil {
 			panic(err)
 		}
@@ -275,7 +276,7 @@ func unpackDocker(ctx context.Context, imgDir string, platform *ocispec.Platform
 	return nil, fmt.Errorf("target config not found")
 }
 
-func createSpec(r io.Reader, rootfs string, debug bool, debugInit bool, imageConfigPath, runtimeConfigPath, imageRootfsPath string, noVmtouch bool, noBinfmt bool) error {
+func createSpec(r io.Reader, rootfs string, debug bool, debugInit bool, imageConfigPath, runtimeConfigPath, imageRootfsPath string, noVmtouch bool, noBinfmt bool, wasiP2Mode bool) error {
 	if rootfs == "" {
 		return fmt.Errorf("rootfs path must be specified")
 	}
@@ -293,7 +294,7 @@ func createSpec(r io.Reader, rootfs string, debug bool, debugInit bool, imageCon
 			binfmtArch = arch
 		}
 	}
-	bootConfig, err := generateBootConfig(debug, debugInit, imageConfigPath, runtimeConfigPath, imageRootfsPath, noVmtouch, binfmtArch, false)
+	bootConfig, err := generateBootConfig(debug, debugInit, imageConfigPath, runtimeConfigPath, imageRootfsPath, noVmtouch, binfmtArch, false, wasiP2Mode)
 	if err != nil {
 		return err
 	}
@@ -381,7 +382,7 @@ func generateSpec(config ocispec.Image, rootfs string) (_ *specs.Spec, err error
 	return s, nil
 }
 
-func generateBootConfig(debug, debugInit bool, imageConfigPath, runtimeConfigPath, imageRootfsPath string, noVmtouch bool, binfmtArch string, externalBundle bool) (*inittype.BootConfig, error) {
+func generateBootConfig(debug, debugInit bool, imageConfigPath, runtimeConfigPath, imageRootfsPath string, noVmtouch bool, binfmtArch string, externalBundle bool, wasiP2Mode bool) (*inittype.BootConfig, error) {
 	runcArgs := []string{"run", "-b", runtimeBundlePath, "foo"}
 	if debug {
 		runcArgs = append([]string{"--debug"}, runcArgs...)
@@ -393,8 +394,9 @@ func generateBootConfig(debug, debugInit bool, imageConfigPath, runtimeConfigPat
 		}
 	}
 	bootConfig := &inittype.BootConfig{
-		Debug:     debug,
-		DebugInit: debugInit,
+		Debug:      debug,
+		DebugInit:  debugInit,
+		WasiP2Mode: wasiP2Mode,
 		Cmd: [][]string{
 			append([]string{"/sbin/runc"}, runcArgs...),
 		},

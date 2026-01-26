@@ -28,6 +28,9 @@ const (
 	rootFSTag = "wasi0"
 	// wasi1: pack directory
 	packFSTag = "wasi1"
+
+	// wasi2ConfigPath is the config file path for wasip2 mode (embedded in fs-wrapper)
+	wasi2ConfigPath = "/pack/wasi2-config"
 )
 
 func main() {
@@ -77,20 +80,6 @@ func doInit() error {
 		return err
 	}
 
-	if os.Getenv("NO_RUNTIME_CONFIG") != "1" && os.Getenv("QEMU_MODE") != "1" {
-		// WASI-related filesystems
-		for _, tag := range []string{rootFSTag, packFSTag} {
-			dst := filepath.Join("/mnt", tag)
-			if err := os.Mkdir(dst, 0777); err != nil {
-				return err
-			}
-			log.Printf("mounting %q to %q\n", tag, dst)
-			if err := syscall.Mount(tag, dst, "9p", 0, "trans=virtio,version=9p2000.L,msize=8192"); err != nil {
-				log.Printf("failed mounting %q: %v\n", tag, err)
-				break
-			}
-		}
-	}
 	var s runtimespec.Spec
 	if !externalBundle {
 		specD, err := os.ReadFile(cfg.Container.RuntimeConfigPath)
@@ -119,35 +108,98 @@ func doInit() error {
 
 	var info runtimeFlags
 	if os.Getenv("NO_RUNTIME_CONFIG") != "1" && os.Getenv("QEMU_MODE") != "1" {
-		// Wizer snapshot can be created by the host here
-		//////////////////////////////////////////////////////////////////////
-		fmt.Printf("==========") // special string not printed
-		var b [2]byte
-		var bPos int
-		bTargetPos := 1
-		for {
-			if _, err := os.Stdin.Read(b[:]); err != nil {
-				return err
+		if cfg.WasiP2Mode {
+			// WASI P2 mode: use standard WASI interfaces
+			log.Println("Running in WASI P2 mode")
+
+			// Sync VM clock to host via wasi:clocks/wall-clock
+			if err := syncVMClock(); err != nil {
+				log.Printf("Warning: %v", err)
 			}
-			log.Printf("HOST: got %q\n", string(b[:]))
-			if b[0] == '=' && b[1] == '\n' {
-				bPos++
-				if bPos == bTargetPos {
+
+			// Get basic config from wasi:cli (args, env)
+			info = getRuntimeFlagsFromCLI()
+
+			// Read advanced config from embedded file if present
+			if configD, err := os.ReadFile(wasi2ConfigPath); err == nil {
+				log.Printf("WASI2 CONFIG:\n%s\n", string(configD))
+				advancedInfo := parseWasi2Config(configD)
+				// Merge advanced config into info
+				info.mounts = append(info.mounts, advancedInfo.mounts...)
+				info.withNet = advancedInfo.withNet
+				info.mac = advancedInfo.mac
+				info.bundle = advancedInfo.bundle
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("failed to read wasi2 config: %w", err)
+			}
+			// If no config file and no CLI args, that's OK - use image defaults
+
+			// Wizer snapshot can be created by the host here (same as P1 mode)
+			//////////////////////////////////////////////////////////////////////
+			fmt.Printf("==========") // special string wizer looks for
+			var b [2]byte
+			var bPos int
+			bTargetPos := 1
+			for {
+				if _, err := os.Stdin.Read(b[:]); err != nil {
+					return err
+				}
+				log.Printf("HOST: got %q\n", string(b[:]))
+				if b[0] == '=' && b[1] == '\n' {
+					bPos++
+					if bPos == bTargetPos {
+						break
+					}
+					continue
+				}
+				bPos = 0
+			}
+			///////////////////////////////////////////////////////////////////////
+
+		} else {
+			// Legacy WASI P1 mode: wait for host signal and read info file
+			// WASI-related filesystems
+			for _, tag := range []string{rootFSTag, packFSTag} {
+				dst := filepath.Join("/mnt", tag)
+				if err := os.Mkdir(dst, 0777); err != nil {
+					return err
+				}
+				log.Printf("mounting %q to %q\n", tag, dst)
+				if err := syscall.Mount(tag, dst, "9p", 0, "trans=virtio,version=9p2000.L,msize=8192"); err != nil {
+					log.Printf("failed mounting %q: %v\n", tag, err)
 					break
 				}
-				continue
 			}
-			bPos = 0
-		}
-		///////////////////////////////////////////////////////////////////////
 
-		infoD, err := os.ReadFile(filepath.Join("/mnt", packFSTag, "info"))
-		if err != nil {
-			return err
+			// Wizer snapshot can be created by the host here
+			//////////////////////////////////////////////////////////////////////
+			fmt.Printf("==========") // special string not printed
+			var b [2]byte
+			var bPos int
+			bTargetPos := 1
+			for {
+				if _, err := os.Stdin.Read(b[:]); err != nil {
+					return err
+				}
+				log.Printf("HOST: got %q\n", string(b[:]))
+				if b[0] == '=' && b[1] == '\n' {
+					bPos++
+					if bPos == bTargetPos {
+						break
+					}
+					continue
+				}
+				bPos = 0
+			}
+			///////////////////////////////////////////////////////////////////////
+
+			infoD, err := os.ReadFile(filepath.Join("/mnt", packFSTag, "info"))
+			if err != nil {
+				return err
+			}
+			log.Printf("INFO:\n%s\n", string(infoD))
+			info = parseInfo(infoD)
 		}
-		log.Printf("INFO:\n%s\n", string(infoD))
-		info = parseInfo(infoD)
-		//log.Printf("Running: %+v\n", s.Process.Args)
 	}
 
 	if os.Getenv("NO_RUNTIME_CONFIG") != "1" && os.Getenv("QEMU_MODE") == "1" {
@@ -478,6 +530,101 @@ func parseInfo(infoD []byte) (info runtimeFlags) {
 		}
 	}
 	return
+}
+
+// parseWasi2Config parses the wasip2-specific config file.
+// Only handles features not covered by WASI standard interfaces:
+// - m: bind mounts (no WASI equivalent)
+// - n: networking (no WASI equivalent)
+// - b: external bundle (no WASI equivalent)
+//
+// Note: args/env come from wasi:cli, timestamp auto-syncs via wasi:clocks
+func parseWasi2Config(configD []byte) (info runtimeFlags) {
+	var options []string
+	lmchs := delimLines.FindAllIndex(configD, -1)
+	prev := 0
+	for _, m := range lmchs {
+		s := m[0] + 1
+		options = append(options, strings.ReplaceAll(string(configD[prev:s]), "\\\n", "\n"))
+		prev = m[1]
+	}
+	options = append(options, strings.ReplaceAll(string(configD[prev:]), "\\\n", "\n"))
+
+	for _, l := range options {
+		elms := strings.SplitN(l, ":", 2)
+		if len(elms) != 2 {
+			continue
+		}
+		inst := elms[0]
+		o := strings.TrimLeft(elms[1], " ")
+		switch inst {
+		case "m":
+			if o == "" {
+				continue
+			}
+			info.mounts = append(info.mounts, runtimespec.Mount{
+				Type:        "bind",
+				Source:      filepath.Join("/mnt/wasi0", o),
+				Destination: filepath.Join("/", o),
+				Options:     []string{"bind"},
+			})
+			log.Printf("Prepared mount wasi0 => %q", o)
+		case "n":
+			info.withNet = true
+			info.mac = o
+		case "b":
+			info.bundle = o
+		default:
+			// Ignore directives handled by WASI standard interfaces:
+			// - c:, e:, env: come from wasi:cli
+			// - t: auto-syncs via wasi:clocks
+			if inst != "c" && inst != "e" && inst != "env" && inst != "t" {
+				log.Printf("unsupported wasi2-config directive: %q", inst)
+			}
+		}
+	}
+	return
+}
+
+// getRuntimeFlagsFromCLI builds runtime flags from wasi:cli interfaces.
+// In wasip2 mode, args and env come from the WASI runtime, not a config file.
+func getRuntimeFlagsFromCLI() runtimeFlags {
+	var info runtimeFlags
+
+	// Get args from os.Args (maps to wasi:cli/environment.get-arguments)
+	// Convention: first arg after program name is entrypoint, rest are args
+	// Example: wasmtime run out.wasm -- /bin/sh -c "echo hello"
+	//          os.Args = ["/bin/sh", "-c", "echo hello"]
+	args := os.Args[1:] // Skip program name (the wasm itself)
+	if len(args) > 0 {
+		info.entrypoint = []string{args[0]}
+		if len(args) > 1 {
+			info.args = args[1:]
+		}
+	}
+
+	// Get env from os.Environ (maps to wasi:cli/environment.get-environment)
+	// Filter out internal vars
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "WASI_") {
+			continue // Skip WASI internal vars
+		}
+		info.env = append(info.env, e)
+	}
+
+	return info
+}
+
+// syncVMClock sets the VM's internal clock to match the host's wall clock.
+// In wasip2 mode, time.Now() reads from wasi:clocks/wall-clock, giving us
+// the host's current time which we then set inside the VM.
+func syncVMClock() error {
+	hostTime := time.Now().Unix()
+	if err := exec.Command("date", "+%s", "-s", fmt.Sprintf("@%d", hostTime)).Run(); err != nil {
+		return fmt.Errorf("failed to sync VM clock: %w", err)
+	}
+	log.Printf("Synced VM clock to host time: %d", hostTime)
+	return nil
 }
 
 func patchSpec(s runtimespec.Spec, info runtimeFlags, imageConfig imagespec.Image) runtimespec.Spec {
