@@ -49,6 +49,7 @@ ARG QEMU_REPO_VERSION=8604ed49a3cde392890b014a8d5a959c8a2fe72a
 
 ARG SOURCE_REPO=https://github.com/ktock/container2wasm
 ARG SOURCE_REPO_VERSION=v0.8.3
+ARG USE_LOCAL_SOURCE=false
 
 ARG ZLIB_VERSION=1.3.1
 ARG GLIB_MINOR_VERSION=2.75
@@ -59,13 +60,22 @@ ARG FFI_VERSION=adbcf2b247696dde2667ab552cb93e0c79455c84
 FROM scratch AS oci-image-src
 COPY . .
 
+# Remote assets: clone from SOURCE_REPO
 FROM ubuntu:22.04 AS assets-base
 ARG SOURCE_REPO
 ARG SOURCE_REPO_VERSION
 RUN apt-get update && apt-get install -y git
 RUN git clone -b ${SOURCE_REPO_VERSION} ${SOURCE_REPO} /assets
-FROM scratch AS assets
+FROM scratch AS assets-false
 COPY --link --from=assets-base /assets /
+
+# Local assets: use local source files (for development)
+FROM scratch AS assets-true
+COPY . /
+
+# Assets selector: USE_LOCAL_SOURCE=true uses local files, false (default) uses remote
+ARG USE_LOCAL_SOURCE
+FROM assets-${USE_LOCAL_SOURCE} AS assets
 
 FROM ubuntu:22.04 AS tinyemu-repo-base
 ARG TINYEMU_REPO
@@ -106,6 +116,7 @@ ARG OPTIMIZATION_MODE
 ARG NO_VMTOUCH
 ARG NO_BINFMT
 ARG EXTERNAL_BUNDLE
+ARG WASI_TARGET
 COPY --link --from=assets / /work
 WORKDIR /work
 RUN --mount=type=cache,target=/root/.cache/go-build \
@@ -127,7 +138,9 @@ RUN mkdir -p /out/oci/rootfs /out/oci/bundle && \
     if test "${NO_BINFMT}" != "" ; then NO_BINFMT_F="${NO_BINFMT}" ; fi && \
     EXTERNAL_BUNDLE_F=false && \
     if test "${EXTERNAL_BUNDLE}" = "true" ; then EXTERNAL_BUNDLE_F=true ; fi && \
-    create-spec --debug=${INIT_DEBUG} --debug-init=${IS_WIZER} --no-vmtouch=${NO_VMTOUCH_F} --external-bundle=${EXTERNAL_BUNDLE_F} --no-binfmt=${NO_BINFMT_F} \
+    WASI_P2_F=false && \
+    if test "${WASI_TARGET}" = "p2" ; then WASI_P2_F=true ; fi && \
+    create-spec --debug=${INIT_DEBUG} --debug-init=${IS_WIZER} --no-vmtouch=${NO_VMTOUCH_F} --external-bundle=${EXTERNAL_BUNDLE_F} --no-binfmt=${NO_BINFMT_F} --wasi-p2=${WASI_P2_F} \
                 --image-config-path=/oci/image.json \
                 --runtime-config-path=/oci/spec.json \
                 --rootfs-path=/oci/rootfs \
@@ -1099,7 +1112,7 @@ COPY --link --from=assets extras/fs-wrapper /work/fs-wrapper
 COPY --link --from=vm-amd64-dev /pack/rootfs.bin /minpack/
 COPY --link --from=vm-amd64-dev /pack/boot.iso /minpack/
 # Copy wasi2-config for wasip2 standalone operation
-COPY --link extras/fs-wrapper/default-wasi2-config /minpack/wasi2-config
+COPY --link --from=assets extras/fs-wrapper/default-wasi2-config /minpack/wasi2-config
 
 # Build fs-wrapper with embedded files
 WORKDIR /work/fs-wrapper
