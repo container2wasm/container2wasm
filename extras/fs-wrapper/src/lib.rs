@@ -89,6 +89,55 @@ impl FileInputStream {
     }
 }
 
+impl GuestInputStream for FileInputStream {
+    fn read(&self, len: u64) -> Result<Vec<u8>, StreamError> {
+        let data = self.file_data();
+        let pos = self.position.get() as usize;
+        let len = len as usize;
+
+        if pos >= data.len() {
+            return Err(StreamError::Closed);
+        }
+
+        let end = std::cmp::min(pos + len, data.len());
+        let chunk = data[pos..end].to_vec();
+        self.position.set(end as u64);
+
+        Ok(chunk)
+    }
+
+    fn blocking_read(&self, len: u64) -> Result<Vec<u8>, StreamError> {
+        // For embedded files, blocking and non-blocking are the same
+        // since data is always immediately available
+        self.read(len)
+    }
+
+    fn skip(&self, len: u64) -> Result<u64, StreamError> {
+        let data = self.file_data();
+        let pos = self.position.get();
+        let data_len = data.len() as u64;
+
+        if pos >= data_len {
+            return Err(StreamError::Closed);
+        }
+
+        let skip_amount = std::cmp::min(len, data_len - pos);
+        self.position.set(pos + skip_amount);
+
+        Ok(skip_amount)
+    }
+
+    fn blocking_skip(&self, len: u64) -> Result<u64, StreamError> {
+        // Same as skip for embedded files
+        self.skip(len)
+    }
+
+    fn subscribe(&self) -> Pollable {
+        // Return an always-ready pollable since data is always available
+        Pollable::new(AlwaysReadyPollable)
+    }
+}
+
 // ============================================================================
 // Root directory descriptor
 // ============================================================================
