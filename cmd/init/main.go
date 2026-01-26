@@ -29,19 +29,9 @@ const (
 	// wasi1: pack directory
 	packFSTag = "wasi1"
 
-	// wasi2ConfigPath is the config file path for wasip2 mode
+	// wasi2ConfigPath is the config file path for wasip2 mode (embedded in fs-wrapper)
 	wasi2ConfigPath = "/pack/wasi2-config"
 )
-
-// isWasiP2Mode returns true if running in WASI Preview 2 mode.
-// Detection is file-based: the wasi2-config file only exists in wasip2 builds.
-// We check for this file rather than an environment variable because the init
-// process runs inside the Linux VM (Bochs/QEMU), where os.Getenv reads from
-// the VM's environment, not the WASI runtime's environment.
-func isWasiP2Mode() bool {
-	_, err := os.Stat(wasi2ConfigPath)
-	return err == nil
-}
 
 func main() {
 	if err := doInit(); err != nil {
@@ -118,7 +108,7 @@ func doInit() error {
 
 	var info runtimeFlags
 	if os.Getenv("NO_RUNTIME_CONFIG") != "1" && os.Getenv("QEMU_MODE") != "1" {
-		if isWasiP2Mode() {
+		if cfg.WasiP2Mode {
 			// WASI P2 mode: use standard WASI interfaces
 			log.Println("Running in WASI P2 mode")
 
@@ -143,6 +133,28 @@ func doInit() error {
 				return fmt.Errorf("failed to read wasi2 config: %w", err)
 			}
 			// If no config file and no CLI args, that's OK - use image defaults
+
+			// Wizer snapshot can be created by the host here (same as P1 mode)
+			//////////////////////////////////////////////////////////////////////
+			fmt.Printf("==========") // special string wizer looks for
+			var b [2]byte
+			var bPos int
+			bTargetPos := 1
+			for {
+				if _, err := os.Stdin.Read(b[:]); err != nil {
+					return err
+				}
+				log.Printf("HOST: got %q\n", string(b[:]))
+				if b[0] == '=' && b[1] == '\n' {
+					bPos++
+					if bPos == bTargetPos {
+						break
+					}
+					continue
+				}
+				bPos = 0
+			}
+			///////////////////////////////////////////////////////////////////////
 		} else {
 			// Legacy WASI P1 mode: wait for host signal and read info file
 			// WASI-related filesystems
