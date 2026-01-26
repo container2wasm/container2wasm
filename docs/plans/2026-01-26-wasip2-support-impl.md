@@ -1,12 +1,20 @@
 # WASI Preview 2 Support Implementation Plan
 
+> **Status:** Partially superseded by `2026-01-26-fs-wrapper-component.md`
+>
+> This plan describes the original approach using wasi-virt. The actual implementation
+> uses a custom fs-wrapper component composed via `wac plug` instead of wasi-virt,
+> due to compatibility issues with wasi-virt and the preview1 adapter approach.
+>
+> See `2026-01-26-fs-wrapper-component.md` for the filesystem embedding implementation.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add opt-in wasip2 support for Bochs (x86_64) containers with `--target=wasi-p2` flag.
 
-**Architecture:** Parallel Dockerfile stages for p1/p2 toolchains, CLI flag passes build arg, wasi-virt replaces wasi-vfs for Component Model packaging.
+**Architecture:** Parallel Dockerfile stages for p1/p2 toolchains, CLI flag passes build arg. ~~wasi-virt replaces wasi-vfs for Component Model packaging.~~ Custom fs-wrapper component provides embedded filesystem via `wac plug` composition.
 
-**Tech Stack:** wasi-sdk v27, wasi-virt (git main), wizer v8.0.0, binaryen v114
+**Tech Stack:** wasi-sdk v27, ~~wasi-virt (git main)~~, wizer v8.0.0, binaryen v114, cargo-component, wac-cli
 
 ---
 

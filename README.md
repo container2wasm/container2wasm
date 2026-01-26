@@ -61,16 +61,12 @@ container2wasm can also build images targeting WASI Preview 2 (Component Model):
 
 ```console
 $ c2w --target=wasi-p2 alpine:latest out.wasm
+$ wasmtime run out.wasm
 ```
 
-This produces a Component Model wasm file along with filesystem files (`rootfs.bin`, `boot.iso`) that need to be mounted at runtime:
-
-```console
-$ wasmtime run --dir /pack::. out.wasm
-```
+The wasip2 output is a self-contained single file with embedded filesystem - no external file mounting required. The filesystem (`rootfs.bin`, `boot.iso`) is composed into the wasm component using [wac](https://github.com/bytecodealliance/wac).
 
 > NOTE: wasi-p2 support is experimental with the following limitations:
-> - Filesystem files are not embedded in the wasm - they need to be mounted at runtime
 > - Networking is not yet implemented for wasi-p2
 > - Only Bochs (x86_64) emulator is currently supported for wasi-p2
 

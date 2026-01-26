@@ -6,6 +6,12 @@ Add opt-in WASI Preview 2 (wasip2) support for Bochs-based x86_64 containers, ta
 
 **Related issue:** https://github.com/container2wasm/container2wasm/issues/362
 
+> **Implementation Note:** The actual implementation uses a different approach than
+> originally designed. Instead of wasi-virt, we use a custom fs-wrapper component
+> composed via `wac plug`. This approach was necessary due to WASI version compatibility
+> issues between the preview1 adapter and wasi-virt. See `extras/fs-wrapper/README.md`
+> for details on the filesystem embedding approach.
+
 ## Goals
 
 - New CLI flag: `--target=wasi-p2` produces Component Model wasm output
