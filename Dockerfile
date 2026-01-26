@@ -15,6 +15,9 @@ ARG WASI_SDK_VERSION_P2=27
 ARG WASI_SDK_VERSION_P2_FULL=${WASI_SDK_VERSION_P2}.0
 ARG WIZER_VERSION_P2=v8.0.0
 ARG WASI_VIRT_VERSION_P2=19b174a3244f81ed9b91e067b6901f71665316a8
+ARG CARGO_COMPONENT_VERSION=0.21.1
+ARG WAC_CLI_VERSION=0.6.1
+ARG RUST_VERSION=1.87
 
 # ARG LINUX_LOGLEVEL=0
 # ARG INIT_DEBUG=false
@@ -1079,6 +1082,23 @@ RUN wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/release
 RUN mkdir -p /binaryen
 RUN tar -C /binaryen -zxvf /tmp/binaryen.tar.gz
 
+# ===== FILESYSTEM WRAPPER COMPONENT =====
+# Builds a wasi:filesystem provider component for embedding files in wasip2 output
+ARG RUST_VERSION
+FROM rust:${RUST_VERSION}-bookworm AS fs-wrapper-build
+WORKDIR /work
+
+# Install cargo-component for building WASM components
+ARG CARGO_COMPONENT_VERSION
+RUN cargo install cargo-component@${CARGO_COMPONENT_VERSION} --locked
+
+# Install wac-cli for component composition
+ARG WAC_CLI_VERSION
+RUN cargo install wac-cli@${WAC_CLI_VERSION} --locked
+
+# Copy the fs-wrapper source
+COPY --link extras/fs-wrapper /work/fs-wrapper
+
 # ===== BOCHS WASIP2 COMPILATION =====
 FROM bochs-toolchain-p2 AS bochs-dev-p2-common
 COPY --link --from=bochs-repo / /Bochs
@@ -1128,10 +1148,26 @@ FROM bochs-dev-p2-${OPTIMIZATION_MODE} AS bochs-dev-p2-packed
 RUN /tools/wasm-tools/wasm-tools component new bochs \
     --adapt wasi_snapshot_preview1=/tools/wasi_snapshot_preview1.reactor.wasm \
     -o bochs.component.wasm
-# Copy filesystem files alongside the component
-RUN mkdir /out && cp /minpack/* /out/
+
+# Build fs-wrapper component with embedded /minpack files
+COPY --link --from=fs-wrapper-build /work/fs-wrapper /work/fs-wrapper
+COPY --link --from=fs-wrapper-build /usr/local/cargo/bin/cargo-component /usr/local/bin/
+COPY --link --from=fs-wrapper-build /usr/local/cargo/bin/wac /usr/local/bin/
+WORKDIR /work/fs-wrapper
+ENV FS_WRAPPER_PACK_DIR=/minpack
+RUN cargo-component build --release
+# Output: /work/fs-wrapper/target/wasm32-wasip2/release/fs_wrapper.wasm
+
+# Compose: plug fs-wrapper into bochs to satisfy filesystem imports
+WORKDIR /Bochs/bochs
+RUN wac plug bochs.component.wasm \
+    --plug /work/fs-wrapper/target/wasm32-wasip2/release/fs_wrapper.wasm \
+    -o bochs.composed.wasm
+
+# Package final output (single file with embedded filesystem)
+RUN mkdir /out
 ARG OUTPUT_NAME
-RUN mv bochs.component.wasm /out/$OUTPUT_NAME
+RUN mv bochs.composed.wasm /out/$OUTPUT_NAME
 
 FROM bochs-dev-common AS bochs-dev-native
 COPY --link --from=vm-amd64-dev /pack /minpack
