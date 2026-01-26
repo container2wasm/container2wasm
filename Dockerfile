@@ -1068,6 +1068,39 @@ RUN wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/release
 RUN mkdir -p /binaryen
 RUN tar -C /binaryen -zxvf /tmp/binaryen.tar.gz
 
+# ===== BOCHS WASIP2 COMPILATION =====
+FROM bochs-toolchain-p2 AS bochs-dev-p2-common
+COPY --link --from=bochs-repo / /Bochs
+
+# Build JMP module for wasip2
+WORKDIR /Bochs/bochs/wasi_extra/jmp
+RUN mkdir /jmp && cp jmp.h /jmp/
+RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasip2 -c jmp.c -I . -o jmp.o
+RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasip2 -Wl,--export=wasm_setjmp -c jmp.S -o jmp_wrapper.o
+RUN ${WASI_SDK_PATH}/bin/wasm-ld jmp.o jmp_wrapper.o --export=wasm_setjmp --export=wasm_longjmp --export=handle_jmp --no-entry -r -o /jmp/jmp
+
+# Build VFS module for wasip2
+WORKDIR /Bochs/bochs/wasi_extra/vfs
+RUN mkdir /vfs
+RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasip2 -c vfs.c -I . -o /vfs/vfs.o
+
+# Configure and build Bochs for wasip2
+WORKDIR /Bochs/bochs
+ARG INIT_DEBUG
+RUN LOGGING_FLAG=--disable-logging && \
+    if test "${INIT_DEBUG}" = "true" ; then LOGGING_FLAG=--enable-logging ; fi && \
+    CC="${WASI_SDK_PATH}/bin/clang" CXX="${WASI_SDK_PATH}/bin/clang++" RANLIB="${WASI_SDK_PATH}/bin/ranlib" \
+    CFLAGS="--sysroot=${WASI_SDK_PATH}/share/wasi-sysroot --target=wasm32-wasip2 -D_WASI_EMULATED_SIGNAL -DWASI -D__GNU__ -O2 -I/jmp/ -I/tools/wizer/include/" \
+    CXXFLAGS="${CFLAGS}" \
+    ./configure --host wasm32-wasip2 --enable-x86-64 --with-nogui --enable-usb --enable-usb-ehci \
+    --disable-large-ramfile --disable-show-ips --disable-stats ${LOGGING_FLAG} \
+    --enable-repeat-speedups --enable-fast-function-calls --disable-trace-linking --enable-handlers-chaining --enable-avx
+RUN make -j$(nproc) bochs EMU_DEPS="/jmp/jmp /vfs/vfs.o -lrt"
+
+# Apply asyncify (must be done before componentization)
+RUN /binaryen/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt bochs --asyncify -O2 -o bochs.async --pass-arg=asyncify-ignore-imports
+RUN mv bochs.async bochs
+
 FROM bochs-dev-common AS bochs-dev-native
 COPY --link --from=vm-amd64-dev /pack /minpack
 
