@@ -28,6 +28,8 @@ const (
 	rootFSTag = "wasi0"
 	// wasi1: pack directory
 	packFSTag = "wasi1"
+	// wasi2: host data directory
+	hostDataFSTag = "host_data"
 )
 
 func main() {
@@ -88,6 +90,15 @@ func doInit() error {
 			if err := syscall.Mount(tag, dst, "9p", 0, "trans=virtio,version=9p2000.L,msize=8192"); err != nil {
 				log.Printf("failed mounting %q: %v\n", tag, err)
 				break
+			}
+		}
+
+		// Try mounting host_data (wasi2) if available
+		hostDataDst := "/mnt/" + hostDataFSTag
+		if err := os.Mkdir(hostDataDst, 0777); err == nil {
+			log.Printf("mounting %q to %q\n", hostDataFSTag, hostDataDst)
+			if err := syscall.Mount(hostDataFSTag, hostDataDst, "9p", 0, "trans=virtio,version=9p2000.L,msize=8192"); err != nil {
+				log.Printf("failed mounting %q: %v\n", hostDataFSTag, err)
 			}
 		}
 	}
