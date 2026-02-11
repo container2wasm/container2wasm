@@ -12,7 +12,7 @@ RUN mkdir /htdocs/
 RUN cat /tmp/c2w-net-proxy.wasm | gzip > /htdocs/c2w-net-proxy.wasm.gzip
 RUN cp -R index.html dist vendor /htdocs/
 
-FROM golang:1.25 AS dev-c2w-net
+FROM golang:1.26 AS dev-c2w-net
 COPY . .
 RUN go build -o /out/ ./cmd/c2w-net
 
