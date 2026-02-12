@@ -9,6 +9,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - uses: fossas/fossa-action@v1.7.0
+      - uses: fossas/fossa-action@v1.8.0
         with:
           api-key: ${{secrets.FOSSA_API_KEY}}
