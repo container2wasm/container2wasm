@@ -11,6 +11,14 @@ ARG BINARYEN_VERSION=114
 ARG BUSYBOX_VERSION=1.36.1
 ARG RUNC_VERSION=v1.3.0
 
+ARG WASI_SDK_VERSION_P2=27
+ARG WASI_SDK_VERSION_P2_FULL=${WASI_SDK_VERSION_P2}.0
+ARG WIZER_VERSION_P2=v8.0.0
+ARG WASMTIME_VERSION=v41.0.0
+ARG CARGO_COMPONENT_VERSION=0.21.1
+ARG WAC_CLI_VERSION=0.6.1
+ARG RUST_VERSION=1.87
+
 # ARG LINUX_LOGLEVEL=0
 # ARG INIT_DEBUG=false
 ARG LINUX_LOGLEVEL=7
@@ -28,6 +36,7 @@ ARG OUTPUT_NAME=out.wasm # for wasi
 ARG JS_OUTPUT_NAME=out # for emscripten; must not include "."
 ARG OPTIMIZATION_MODE=wizer # "wizer" or "native"
 # ARG OPTIMIZATION_MODE=native
+ARG WASI_TARGET=p1 # p1 (default, wasip1) or p2 (wasip2)
 
 ARG TINYEMU_REPO=https://github.com/ktock/tinyemu-c2w
 ARG TINYEMU_REPO_VERSION=e4e9bd198f9c0505ab4c77a6a9d038059cd1474a
@@ -40,6 +49,7 @@ ARG QEMU_REPO_VERSION=8604ed49a3cde392890b014a8d5a959c8a2fe72a
 
 ARG SOURCE_REPO=https://github.com/ktock/container2wasm
 ARG SOURCE_REPO_VERSION=v0.8.3
+ARG USE_LOCAL_SOURCE=false
 
 ARG ZLIB_VERSION=1.3.1
 ARG GLIB_MINOR_VERSION=2.75
@@ -50,13 +60,22 @@ ARG FFI_VERSION=adbcf2b247696dde2667ab552cb93e0c79455c84
 FROM scratch AS oci-image-src
 COPY . .
 
+# Remote assets: clone from SOURCE_REPO
 FROM ubuntu:22.04 AS assets-base
 ARG SOURCE_REPO
 ARG SOURCE_REPO_VERSION
 RUN apt-get update && apt-get install -y git
 RUN git clone -b ${SOURCE_REPO_VERSION} ${SOURCE_REPO} /assets
-FROM scratch AS assets
+FROM scratch AS assets-false
 COPY --link --from=assets-base /assets /
+
+# Local assets: use local source files (for development)
+FROM scratch AS assets-true
+COPY . /
+
+# Assets selector: USE_LOCAL_SOURCE=true uses local files, false (default) uses remote
+ARG USE_LOCAL_SOURCE
+FROM assets-${USE_LOCAL_SOURCE} AS assets
 
 FROM ubuntu:22.04 AS tinyemu-repo-base
 ARG TINYEMU_REPO
@@ -97,6 +116,7 @@ ARG OPTIMIZATION_MODE
 ARG NO_VMTOUCH
 ARG NO_BINFMT
 ARG EXTERNAL_BUNDLE
+ARG WASI_TARGET
 COPY --link --from=assets / /work
 WORKDIR /work
 RUN --mount=type=cache,target=/root/.cache/go-build \
@@ -118,7 +138,9 @@ RUN mkdir -p /out/oci/rootfs /out/oci/bundle && \
     if test "${NO_BINFMT}" != "" ; then NO_BINFMT_F="${NO_BINFMT}" ; fi && \
     EXTERNAL_BUNDLE_F=false && \
     if test "${EXTERNAL_BUNDLE}" = "true" ; then EXTERNAL_BUNDLE_F=true ; fi && \
-    create-spec --debug=${INIT_DEBUG} --debug-init=${IS_WIZER} --no-vmtouch=${NO_VMTOUCH_F} --external-bundle=${EXTERNAL_BUNDLE_F} --no-binfmt=${NO_BINFMT_F} \
+    WASI_P2_F=false && \
+    if test "${WASI_TARGET}" = "p2" ; then WASI_P2_F=true ; fi && \
+    create-spec --debug=${INIT_DEBUG} --debug-init=${IS_WIZER} --no-vmtouch=${NO_VMTOUCH_F} --external-bundle=${EXTERNAL_BUNDLE_F} --no-binfmt=${NO_BINFMT_F} --wasi-p2=${WASI_P2_F} \
                 --image-config-path=/oci/image.json \
                 --runtime-config-path=/oci/spec.json \
                 --rootfs-path=/oci/rootfs \
@@ -1022,6 +1044,155 @@ RUN make -j$(nproc) bochs EMU_DEPS="/tools/wasi-vfs/libwasi_vfs.a /jmp/jmp /vfs/
 RUN /binaryen/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt bochs --asyncify -O2 -o bochs.async --pass-arg=asyncify-ignore-imports
 RUN mv bochs.async bochs
 
+# ===== WASIP2 TOOLCHAIN =====
+FROM rust:1.85.0-bookworm AS bochs-toolchain-p2
+ARG WASI_SDK_VERSION_P2
+ARG WASI_SDK_VERSION_P2_FULL
+ARG WIZER_VERSION_P2
+ARG WASI_VIRT_VERSION_P2
+ARG BINARYEN_VERSION
+RUN apt-get update -y && apt-get install -y make curl git gcc xz-utils
+
+# wasi-sdk v27 with wasip2 support
+WORKDIR /wasi
+RUN curl -o wasi-sdk.tar.gz -fSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION_P2}/wasi-sdk-${WASI_SDK_VERSION_P2_FULL}-x86_64-linux.tar.gz && \
+    tar xvf wasi-sdk.tar.gz && rm wasi-sdk.tar.gz
+ENV WASI_SDK_PATH=/wasi/wasi-sdk-${WASI_SDK_VERSION_P2_FULL}-x86_64-linux
+
+# wizer with wasip2 support
+WORKDIR /work/
+RUN git clone https://github.com/bytecodealliance/wizer && \
+    cd wizer && \
+    git checkout "${WIZER_VERSION_P2}" && \
+    rm Cargo.lock && \
+    cargo build --bin wizer --all-features --release && \
+    mkdir -p /tools/wizer/ && \
+    mv include target/release/wizer /tools/wizer/ && \
+    cargo clean && \
+    sed -i 's/__WIZER_EXTERN_C void __wasi_proc_exit(int)/__WIZER_EXTERN_C _Noreturn void __wasi_proc_exit(__wasi_exitcode_t)/' /tools/wizer/include/wizer.h
+
+# wasm-tools for component model conversion
+RUN cargo install wasm-tools --locked && \
+    mkdir -p /tools/wasm-tools && \
+    mv /usr/local/cargo/bin/wasm-tools /tools/wasm-tools/
+
+# WASI preview1 to preview2 adapter (required for component model conversion)
+# Using command adapter (not reactor) because Bochs has _start entry point
+ARG WASMTIME_VERSION
+RUN curl -fSL -o /tools/wasi_snapshot_preview1.command.wasm \
+    https://github.com/bytecodealliance/wasmtime/releases/download/${WASMTIME_VERSION}/wasi_snapshot_preview1.command.wasm
+
+# binaryen (same version as p1)
+RUN wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz
+RUN mkdir -p /binaryen
+RUN tar -C /binaryen -zxvf /tmp/binaryen.tar.gz
+
+# ===== FILESYSTEM WRAPPER COMPONENT =====
+# Builds a wasi:filesystem provider component for embedding files in wasip2 output
+ARG RUST_VERSION
+FROM rust:${RUST_VERSION}-bookworm AS fs-wrapper-build
+WORKDIR /work
+
+# Install wasm32 targets for component building
+# wasip1 is needed by cargo-component internals, wasip2 is the actual build target
+RUN rustup target add wasm32-wasip1 wasm32-wasip2
+
+# Install cargo-component for building WASM components
+ARG CARGO_COMPONENT_VERSION
+RUN cargo install cargo-component@${CARGO_COMPONENT_VERSION} --locked
+
+# Install wac-cli for component composition
+ARG WAC_CLI_VERSION
+RUN cargo install wac-cli@${WAC_CLI_VERSION} --locked
+
+# Copy the fs-wrapper source (from assets context when using c2w --assets)
+COPY --link --from=assets extras/fs-wrapper /work/fs-wrapper
+
+# Copy pack files to embed (from vm-amd64-dev which has the compiled rootfs and boot ISO)
+COPY --link --from=vm-amd64-dev /pack/rootfs.bin /minpack/
+COPY --link --from=vm-amd64-dev /pack/boot.iso /minpack/
+# Copy wasi2-config for wasip2 standalone operation
+COPY --link --from=assets extras/fs-wrapper/default-wasi2-config /minpack/wasi2-config
+
+# Build fs-wrapper with embedded files
+WORKDIR /work/fs-wrapper
+ENV FS_WRAPPER_PACK_DIR=/minpack
+RUN cargo-component build --release
+# Output: /work/fs-wrapper/target/wasm32-wasip1/release/fs_wrapper.wasm
+# Note: cargo-component uses wasm32-wasip1 target directory even for WASI P2 components
+
+# ===== BOCHS WASIP2 COMPILATION =====
+FROM bochs-toolchain-p2 AS bochs-dev-p2-common
+COPY --link --from=bochs-repo / /Bochs
+
+# Build JMP module for wasip2 (compile as core wasm, componentize later)
+WORKDIR /Bochs/bochs/wasi_extra/jmp
+RUN mkdir /jmp && cp jmp.h /jmp/
+RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -c jmp.c -I . -o jmp.o
+RUN ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -Wl,--export=wasm_setjmp -c jmp.S -o jmp_wrapper.o
+RUN ${WASI_SDK_PATH}/bin/wasm-ld jmp.o jmp_wrapper.o --export=wasm_setjmp --export=wasm_longjmp --export=handle_jmp --no-entry -r -o /jmp/jmp
+
+# Build VFS stub for wasip2
+# __wasi_vfs_rt_init() is a callback that wasi-vfs runtime calls during initialization.
+# For wasip1: Bochs fork's wasi_extra/vfs/vfs.c implements this with actual VFS setup.
+# For wasip2: We don't use wasi-vfs (fs-wrapper provides filesystem via component model),
+#             but something in Bochs/wasi_extra may still reference the symbol.
+#             This empty stub satisfies the linker. TODO: verify if this stub is actually
+#             needed for wasip2, or if it can be removed entirely.
+WORKDIR /Bochs/bochs/wasi_extra/vfs
+RUN mkdir /vfs
+RUN echo 'void __wasi_vfs_rt_init(void) {}' > /tmp/vfs_stub.c && \
+    ${WASI_SDK_PATH}/bin/clang --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -O2 --target=wasm32-wasi -c /tmp/vfs_stub.c -o /vfs/vfs.o
+
+# Configure and build Bochs (compile as core wasm, componentize with wasm-tools later)
+WORKDIR /Bochs/bochs
+ARG INIT_DEBUG
+RUN LOGGING_FLAG=--disable-logging && \
+    if test "${INIT_DEBUG}" = "true" ; then LOGGING_FLAG=--enable-logging ; fi && \
+    CC="${WASI_SDK_PATH}/bin/clang" CXX="${WASI_SDK_PATH}/bin/clang++" RANLIB="${WASI_SDK_PATH}/bin/ranlib" \
+    CFLAGS="--sysroot=${WASI_SDK_PATH}/share/wasi-sysroot --target=wasm32-wasi -D_WASI_EMULATED_SIGNAL -DWASI -D__GNU__ -O2 -I/jmp/ -I/tools/wizer/include/" \
+    CXXFLAGS="${CFLAGS}" \
+    ./configure --host wasm32-wasi --enable-x86-64 --with-nogui --enable-usb --enable-usb-ehci \
+    --disable-large-ramfile --disable-show-ips --disable-stats ${LOGGING_FLAG} \
+    --enable-repeat-speedups --enable-fast-function-calls --disable-trace-linking --enable-handlers-chaining --enable-avx
+RUN make -j$(nproc) bochs EMU_DEPS="/jmp/jmp /vfs/vfs.o -lrt"
+
+# Apply asyncify (must be done on core wasm before wizer/componentization)
+RUN /binaryen/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt bochs --asyncify -O2 -o bochs.async --pass-arg=asyncify-ignore-imports
+RUN mv bochs.async bochs
+
+FROM bochs-dev-p2-common AS bochs-dev-p2-native
+COPY --link --from=vm-amd64-dev /pack /minpack
+
+FROM bochs-dev-p2-common AS bochs-dev-p2-wizer
+COPY --link --from=vm-amd64-dev /pack /pack
+ENV WASMTIME_BACKTRACE_DETAILS=1
+# Wizer pre-initialization on core wasm
+RUN mv bochs bochs-org && /tools/wizer/wizer --allow-wasi --wasm-bulk-memory=true -r _start=wizer.resume --mapdir /pack::/pack -o bochs bochs-org
+RUN mkdir /minpack && cp /pack/rootfs.bin /minpack/ && cp /pack/boot.iso /minpack/
+
+FROM bochs-dev-p2-${OPTIMIZATION_MODE} AS bochs-dev-p2-packed
+# Convert core wasm to component with preview1 adapter
+# command adapter adds wasi:cli/run export for wasmtime run compatibility
+RUN /tools/wasm-tools/wasm-tools component new bochs \
+    --adapt wasi_snapshot_preview1=/tools/wasi_snapshot_preview1.command.wasm \
+    -o bochs.component.wasm
+
+# Copy pre-built fs-wrapper component and wac tool
+# Note: cargo-component 0.21.1 uses wasm32-wasip1 target directory even for WASI P2 components
+COPY --link --from=fs-wrapper-build /work/fs-wrapper/target/wasm32-wasip1/release/fs_wrapper.wasm /work/fs_wrapper.wasm
+COPY --link --from=fs-wrapper-build /usr/local/cargo/bin/wac /usr/local/bin/
+
+# Compose: plug fs-wrapper into bochs to satisfy filesystem imports
+RUN wac plug bochs.component.wasm \
+    --plug /work/fs_wrapper.wasm \
+    -o bochs.composed.wasm
+
+# Package final output (single file with embedded filesystem)
+RUN mkdir /out
+ARG OUTPUT_NAME
+RUN mv bochs.composed.wasm /out/$OUTPUT_NAME
+
 FROM bochs-dev-common AS bochs-dev-native
 COPY --link --from=vm-amd64-dev /pack /minpack
 
@@ -1036,8 +1207,13 @@ RUN /tools/wasi-vfs/wasi-vfs pack /Bochs/bochs/bochs --mapdir /pack::/minpack -o
 ARG OUTPUT_NAME
 RUN mv packed /out/$OUTPUT_NAME
 
+# ===== WASI TARGET SELECTION =====
+FROM bochs-dev-packed AS bochs-final-p1
+FROM bochs-dev-p2-packed AS bochs-final-p2
+FROM bochs-final-${WASI_TARGET} AS bochs-final
+
 FROM scratch AS wasi-amd64
-COPY --link --from=bochs-dev-packed /out/ /
+COPY --link --from=bochs-final /out/ /
 
 
 FROM emscripten/emsdk:$EMSDK_VERSION AS bochs-emscripten
