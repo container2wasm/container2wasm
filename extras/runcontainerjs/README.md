@@ -16,21 +16,13 @@ The following starts the container.
 
 ```js
 const vmImage = location.origin + "/img";
+const outJsAddr = vmImage + "/out.js";
+const argModuleJsAddr = vmImage + "/arg-module.js";
+const loadJsAddr = vmImage + "/load.js";
 const mounterImage = location.origin + "/imagemounter.wasm.gzip";
 const stackWorkerFile = location.origin + "/dist/stack-worker.js";
 const containerImageAddress = getImageParam();
-const moduleP = RunContainer.createContainerQEMUWasm(vmImage, containerImageAddress, stackWorkerFile, mounterImage, Module);
-moduleP.then((Module) => {
-    Module.pty = slave;
-    var oldPoll = Module['TTY'].stream_ops.poll;
-    var pty = Module['pty'];
-    Module['TTY'].stream_ops.poll = function(stream, timeout){
-        if (!pty.readable) {
-            return (pty.readable ? 1 : 0) | (pty.writable ? 4 : 0);
-        }
-        return oldPoll.call(stream, timeout);
-    }
-})
+Module = await RunContainer.createContainerQEMUWasm(Module, outJsAddr, containerImageAddress, stackWorkerFile, mounterImage, argModuleJsAddr, loadJsAddr, (p) => vmImage + "/" + p);
 ```
 
 ### WASI-on-browser

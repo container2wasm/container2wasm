@@ -1,6 +1,3 @@
-import { ws } from 'msw'
-import { setupWorker } from "msw/browser";
-
 let stackWorker = null;
 
 export async function createContainerWASI(vmImage, imageAddr, stackWorkerPath, mounterWasmURL) {
@@ -17,30 +14,28 @@ var accepted = false;
 let curSocket = null;
 let eventQueue = [];
 
-export async function createContainerQEMUWasm(vmImage, imageAddr, stackWorkerPath, mounterWasmURL, Module) {
+export async function createContainerQEMUWasm(Module, outJsAddr, imageAddr, stackWorkerPath, mounterWasmURL, argModuleJsAddr, loadJsAddr, locateFile, options) {
     try {
         window.Module = Module;
-        const { default: initEmscriptenModule } = await import(/* webpackIgnore: true */`${vmImage}/out.js`);
-        await import(/* webpackIgnore: true */`${vmImage}/arg-module.js`);
+        const { default: initEmscriptenModule } = await import(/* webpackIgnore: true */`${outJsAddr}`);
+        await import(/* webpackIgnore: true */`${argModuleJsAddr}`);
         
-        const stackAddress = 'http://localhost:9999/'; // listened and served by MSW inside browser
-        Module['mainScriptUrlOrBlob'] = vmImage + "/out.js";
-        Module['websocket'] = {
-            'url': stackAddress
-        };
-        Module['locateFile'] = (f) => {
-            return vmImage + "/" + f;
-        }
+        Module['mainScriptUrlOrBlob'] = outJsAddr;
+        Module['locateFile'] = locateFile;
 
         await new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = vmImage + "/load.js";
+            script.src = loadJsAddr;
             script.async = true;
             script.onload = () => resolve();
             script.onerror = () => reject(new Error(`failed to load assets`));
             document.head.appendChild(script);
         });
 
+        const stackAddress = 'http://localhost:8888/'; // listened and served by a mock inside browser
+        Module['websocket'] = {
+            'url': stackAddress
+        };
         await new Promise((resolve) => {
             startQEMUWasm(stackAddress, stackWorkerPath, mounterWasmURL, imageAddr, (cert) => {
                 Module['preRun'].push((mod) => {
@@ -48,11 +43,11 @@ export async function createContainerQEMUWasm(vmImage, imageAddr, stackWorkerPat
                     mod.FS.writeFile('/.wasmenv/proxy.crt', cert);
                 });
                 resolve();
-            });
+            }, options.log);
         });
         let info = "t:" + Math.round(new Date() / 1000) + "\n";
         info += 'n:' + genmac() + '\n';
-        info += `m: .wasmenv
+        info += `mr: .wasmenv
 env: SSL_CERT_FILE=/.wasmenv/proxy.crt
 env: https_proxy=http://192.168.127.253:80
 env: http_proxy=http://192.168.127.253:80
@@ -61,8 +56,9 @@ env: HTTP_PROXY=http://192.168.127.253:80\n`;
         if (imageAddr != "") {
             info += 'b: 9p=192.168.127.252\n';
         }
+        if (options && options.extraInfo != null) info += options.extraInfo;
         Module['preRun'].push((mod) => {
-            mod.FS.mkdir('/pack');
+            try { mod.FS.mkdir('/pack'); } catch (e) {}
             mod.FS.writeFile('/pack/info', info);
         });
         await initEmscriptenModule(Module);
@@ -78,34 +74,75 @@ function genmac(){
     });
 }
 
-function startQEMUWasm(address, stackWorkerFile, mounterWasmURL, imageAddr, readyCallback) {
-    const mockServer = ws.link(address);
+// Mimimum WebSocket mock which implements only fields used by the emscripten runtime.
+// TODO: Add more fields
+function emscriptenMockWebSocket(address, onconnection) {
+    const WindowWebSocket = window.WebSocket;
 
-    const handlers = [
-        mockServer.addEventListener('connection', ({ client }) => {
-            if (curSocket != null) {
-                // should fail
-                console.log("duplicated");
+    class EmscriptenMockWebSocket {
+        constructor(url, protocols) {
+            this.url = url;
+            this.protocol = protocols;
+            this.binaryType = "arraybuffer";
+            this.CONNECTING = 0;
+            this.OPEN = 1;
+            this.CLOSING = 2;
+            this.CLOSED = 3;
+            this.readyState = this.CONNECTING;
+
+            if (this.url != address) {
+                return new WindowWebSocket(url, protocols);
+            }
+
+            const client = {};
+
+            client.send = (data) => {
+                queueMicrotask(() => {if (this.onmessage) this.onmessage({ data: data })});
+            };
+
+            this.send = (data) => {
+                if (this.readyState !== 1) throw new Error("WebSocket is not open");
+                queueMicrotask(() => {if (client.onmessage) client.onmessage({ data: data })});
+            };
+
+            this.close = (code = 1000, reason = "") => {
+                this.readyState = this.CLOSED;
+            };
+
+            queueMicrotask(() => {
+                if (!onconnection(client)) return;
+                this.readyState = this.OPEN;
+                if (this.onopen) this.onopen();
+            });
+        }
+    }
+
+    window.WebSocket = EmscriptenMockWebSocket;
+}
+
+function startQEMUWasm(address, stackWorkerFile, mounterWasmURL, imageAddr, readyCallback, log) {
+    emscriptenMockWebSocket(address, (client) => {
+        if (curSocket != null) {
+            console.log("duplicated");
+            return false;
+        }
+        curSocket = client;
+        sockAccept();
+
+        client.onmessage = (event) => {
+            if (!accepted) {
                 return;
             }
-            curSocket = client;
-            sockAccept();
-            client.addEventListener('message', (event) => {
-                if (!accepted) {
-                    return;
-                }
-                eventQueue.push(new Uint8Array(event.data));
-                sockSend(); // pass data from qemu to c2w-net-proxy.wasm
-            })
-        }),
-    ]
+            eventQueue.push(new Uint8Array(event.data));
+            sockSend(); // pass data from qemu to c2w-net-proxy.wasm
+        }
 
-    const worker = setupWorker(...handlers);
-    worker.start()
+        return true;
+    });
 
     stackWorker = new Worker(stackWorkerFile);
 
-    let conn = createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback);
+    let conn = createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback, log);
     registerConnBuffer(conn.toNet, conn.fromNet);
     registerMetaBuffer(conn.metaFromNet);
 }
@@ -279,7 +316,7 @@ export function RecvCert(){
     });
 }
 
-function createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback) {
+function createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback, log) {
     var proxyShared = new SharedArrayBuffer(12 + 1024 * 1024);
 
     var toShared = new SharedArrayBuffer(1024 * 1024);
@@ -316,7 +353,7 @@ function createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback) {
         buf: new Uint8Array(0),
         readyCallback: readyCallback
     }
-    stackWorker.onmessage = connect("proxy", proxyShared, toShared, certbuf);
+    stackWorker.onmessage = connect("proxy", proxyShared, toShared, certbuf, log);
     stackWorker.postMessage({type: "init", buf: proxyShared, toBuf: toShared, fromBuf: fromShared, imageAddr: imageAddr, mounterWasmURL: mounterWasmURL, metaFromBuf: metaFromShared});
     return {
         toNet: toShared,
@@ -325,7 +362,7 @@ function createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback) {
     };
 }
 
-function connect(name, shared, toNet, certbuf) {
+function connect(name, shared, toNet, certbuf, log) {
     var streamCtrl = new Int32Array(shared, 0, 1);
     var streamStatus = new Int32Array(shared, 4, 1);
     var streamLen = new Int32Array(shared, 8, 1);
@@ -805,6 +842,9 @@ function connect(name, shared, toNet, certbuf) {
                             }
                         }
                     }
+                    break;
+                case "log":
+                    if (log != null) log(req_.msg);
                     break;
                 default:
                     console.log(name + ":" + "unknown request: " +  req_.type)
