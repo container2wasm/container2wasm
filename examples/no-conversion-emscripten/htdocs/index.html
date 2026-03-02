@@ -19,23 +19,36 @@
 
       let Module = {};
       Module.pty = slave;
+      var readableCallbacks = [];
+      Module.pty.onReadable(() => {
+          readableCallbacks.forEach(cb => cb());
+          readableCallbacks = [];
+      });
+      Module['preRun'] = [];
+      Module['preRun'].push((Module) => {
+          Module['TTY'].stream_ops.poll = (stream, timeout, notifyCallback) => {
+              if (Module.pty.readable) {
+                  return 1;
+              }
+              if (notifyCallback != null) {
+                  notifyCallback.registerCleanupFunc(() => {
+                      const i = readableCallbacks.indexOf(notifyCallback);
+                      if (i != -1) readableCallbacks.splice(i, 1);
+                  });
+                  readableCallbacks.push(notifyCallback);
+              }
+              return 0;
+          };
+      });
 
       const vmImage = location.origin + "/img";
+      const outJsAddr = vmImage + "/out.js";
+      const argModuleJsAddr = vmImage + "/arg-module.js";
+      const loadJsAddr = vmImage + "/load.js";
       const mounterImage = location.origin + "/imagemounter.wasm.gzip";
       const stackWorkerFile = location.origin + "/dist/stack-worker.js";
       const containerImageAddress = getImageParam();
-      const moduleP = RunContainer.createContainerQEMUWasm(vmImage, containerImageAddress, stackWorkerFile, mounterImage, Module);
-      moduleP.then((Module) => {
-          Module.pty = slave;
-          var oldPoll = Module['TTY'].stream_ops.poll;
-          var pty = Module['pty'];
-          Module['TTY'].stream_ops.poll = function(stream, timeout){
-              if (!pty.readable) {
-                  return (pty.readable ? 1 : 0) | (pty.writable ? 4 : 0);
-              }
-              return oldPoll.call(stream, timeout);
-          }
-      })
+      Module = await RunContainer.createContainerQEMUWasm(Module, outJsAddr, containerImageAddress, stackWorkerFile, mounterImage, argModuleJsAddr, loadJsAddr, (p) => vmImage + "/" + p);
       function getImageParam() {
           var vars = location.search.substring(1).split('&');
           for (var i = 0; i < vars.length; i++) {
