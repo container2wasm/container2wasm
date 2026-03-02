@@ -6,7 +6,7 @@ ARG WASI_SDK_VERSION_FULL=${WASI_SDK_VERSION}.0
 ARG WASI_VFS_VERSION=v0.3.0
 ARG WIZER_VERSION=04e49c989542f2bf3a112d60fbf88a62cce2d0d0
 ARG EMSDK_VERSION=3.1.40 # TODO: support recent version
-ARG EMSDK_VERSION_QEMU=3.1.50 # TODO: support recent version
+ARG EMSDK_VERSION_QEMU=4.0.10
 ARG BINARYEN_VERSION=114
 ARG BUSYBOX_VERSION=1.36.1
 ARG RUNC_VERSION=v1.3.0
@@ -387,9 +387,8 @@ RUN git clone https://github.com/libffi/libffi /libffi
 WORKDIR /libffi
 RUN git checkout $FFI_VERSION
 RUN autoreconf -fiv
-RUN LDFLAGS="$LDFLAGS -sEXPORTED_RUNTIME_METHODS='getTempRet0,setTempRet0'" ; \
-    emconfigure ./configure --host=$CHOST --prefix=$TARGET --enable-static --disable-shared --disable-dependency-tracking \
-    --disable-builddir --disable-multi-os-directory --disable-raw-api --disable-structs --disable-docs
+RUN emconfigure ./configure --host=$CHOST --prefix=$TARGET --enable-static --disable-shared --disable-dependency-tracking \
+    --disable-builddir --disable-multi-os-directory --disable-raw-api --disable-structs --disable-docs || cat config.log
 RUN emmake make install SUBDIRS='include'
 
 FROM glib-emscripten-base AS glib-emscripten-dev
@@ -713,7 +712,9 @@ COPY --link --from=glib-emscripten-dev /glib-emscripten/ /glib-emscripten/
 COPY --link --from=pixman-emscripten-dev /glib-emscripten/ /glib-emscripten/
 RUN mkdir -p build
 WORKDIR /qemu/build
-RUN npm i xterm-pty
+RUN npm i xterm-pty@v0.10.1
+RUN cp /qemu/build/node_modules/xterm-pty/emscripten-pty.js /glib-emscripten/target/lib/libemscripten-pty.js
+ENV XTERM_PTY_CFLAGS="-lemscripten-pty.js -Wno-unused-command-line-argument"
 
 FROM linux-riscv64-dev-common AS linux-riscv64-config-dev-qemu
 WORKDIR /work-buildlinux/linux
@@ -859,10 +860,10 @@ RUN if test "${QEMU_MIGRATION}" = "true"  ; then /get-qemu-state -output=/pack/v
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-amd64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=$((3000*1024*1024)) -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js" ; \
+RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -Wno-error=unused-but-set-variable -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=$((3000*1024*1024)) -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=x86_64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
-    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" && \
+    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \
     emmake make -j $(nproc) qemu-system-x86_64
 COPY --from=qemu-x86_64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
@@ -882,7 +883,6 @@ RUN if test "${LOAD_MODE}" = "single" ; then \
 FROM scratch AS js-qemu-amd64-base
 COPY --link --from=qemu-emscripten-dev-amd64 /qemu/build/qemu-system-x86_64 /out.js
 COPY --link --from=qemu-emscripten-dev-amd64 /qemu/build/qemu-system-x86_64.wasm /
-COPY --link --from=qemu-emscripten-dev-amd64 /qemu/build/qemu-system-x86_64.worker.js /
 COPY --link --from=qemu-config-dev-amd64 /out/arg-module.js /
 
 FROM js-qemu-amd64-base AS js-qemu-amd64-single
@@ -896,10 +896,10 @@ FROM js-qemu-amd64-${LOAD_MODE} AS js-qemu-amd64
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-aarch64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -fno-inline-functions -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 " ; \
+RUN EXTRA_CFLAGS="-O3 -fno-inline-functions -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=aarch64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
-    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" && \
+    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \
     emmake make -j $(nproc) qemu-system-aarch64
 COPY --from=qemu-aarch64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
@@ -914,7 +914,6 @@ RUN if test "${LOAD_MODE}" = "single" ; then \
 FROM scratch AS js-qemu-aarch64-base
 COPY --link --from=qemu-emscripten-dev-aarch64 /qemu/build/qemu-system-aarch64 /out.js
 COPY --link --from=qemu-emscripten-dev-aarch64 /qemu/build/qemu-system-aarch64.wasm /
-COPY --link --from=qemu-emscripten-dev-aarch64 /qemu/build/qemu-system-aarch64.worker.js /
 COPY --link --from=qemu-config-dev-aarch64 /out/arg-module.js /
 
 FROM js-qemu-aarch64-base AS js-qemu-aarch64-single
@@ -928,10 +927,10 @@ FROM js-qemu-aarch64-$LOAD_MODE AS js-aarch64
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-riscv64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc --js-library=/qemu/build/node_modules/xterm-pty/emscripten-pty.js -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js" ; \
+RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=riscv64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
-    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=getTempRet0,setTempRet0,addFunction,removeFunction,TTY,FS" && \
+    --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \
     emmake make -j $(nproc) qemu-system-riscv64
 COPY --from=qemu-riscv64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
@@ -946,7 +945,6 @@ RUN if test "${LOAD_MODE}" = "single" ; then \
 FROM scratch AS js-qemu-riscv64-base
 COPY --link --from=qemu-emscripten-dev-riscv64 /qemu/build/qemu-system-riscv64 /out.js
 COPY --link --from=qemu-emscripten-dev-riscv64 /qemu/build/qemu-system-riscv64.wasm /
-COPY --link --from=qemu-emscripten-dev-riscv64 /qemu/build/qemu-system-riscv64.worker.js /
 COPY --link --from=qemu-config-dev-riscv64 /out/arg-module.js /
 
 FROM js-qemu-riscv64-base AS js-qemu-riscv64-single
