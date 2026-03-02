@@ -1,35 +1,71 @@
-import { ws } from 'msw'
-import { setupWorker } from "msw/browser";
-
 var accepted = false;
 let curSocket = null;
 let eventQueue = [];
 let stackWorker = null;
 
-export function Start(address, stackWorkerFile, stackImage, readyCallback) {
-    const mockServer = ws.link(address);
+// Mimimum WebSocket mock which implements only fields used by the emscripten runtime.
+// TODO: Add more fields
+function emscriptenMockWebSocket(address, onconnection) {
+    const WindowWebSocket = window.WebSocket;
 
-    const handlers = [
-        mockServer.addEventListener('connection', ({ client }) => {
-            if (curSocket != null) {
-                // should fail
-                console.log("duplicated");
+    class EmscriptenMockWebSocket {
+        constructor(url, protocols) {
+            this.url = url;
+            this.protocol = protocols;
+            this.binaryType = "arraybuffer";
+            this.CONNECTING = 0;
+            this.OPEN = 1;
+            this.CLOSING = 2;
+            this.CLOSED = 3;
+            this.readyState = this.CONNECTING;
+
+            if (this.url != address) {
+                return new WindowWebSocket(url, protocols);
+            }
+
+            const client = {};
+
+            client.send = (data) => {
+                queueMicrotask(() => {if (this.onmessage) this.onmessage({ data: data })});
+            };
+
+            this.send = (data) => {
+                if (this.readyState !== 1) throw new Error("WebSocket is not open");
+                queueMicrotask(() => {if (client.onmessage) client.onmessage({ data: data })});
+            };
+
+            this.close = (code = 1000, reason = "") => {
+                this.readyState = this.CLOSED;
+            };
+
+            queueMicrotask(() => {
+                if (!onconnection(client)) return;
+                this.readyState = this.OPEN;
+                if (this.onopen) this.onopen();
+            });
+        }
+    }
+
+    window.WebSocket = EmscriptenMockWebSocket;
+}
+
+export function Start(address, stackWorkerFile, stackImage, readyCallback) {
+    emscriptenMockWebSocket(address, (client) => {
+        if (curSocket != null) {
+            console.log("duplicated");
+            return false;
+        }
+        curSocket = client;
+        sockAccept();
+        client.onmessage = (event) => {
+            if (!accepted) {
                 return;
             }
-            curSocket = client;
-            sockAccept();
-            client.addEventListener('message', (event) => {
-                if (!accepted) {
-                    return;
-                }
-                eventQueue.push(new Uint8Array(event.data));
-                sockSend(); // pass data from qemu to c2w-net-proxy.wasm
-            })
-        }),
-    ]
-
-    const worker = setupWorker(...handlers);
-    worker.start()
+            eventQueue.push(new Uint8Array(event.data));
+            sockSend(); // pass data from qemu to c2w-net-proxy.wasm
+        }
+        return true;
+    });
 
     stackWorker = new Worker(stackWorkerFile);
 

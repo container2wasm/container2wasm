@@ -78,7 +78,7 @@ The server started by the above steps provides the following pages.
 This URL serves the image with enabling [networking leveraging Fetch API](../networking/fetch/).
 For example, you can accesses to a site using wget (`wget -O - https://ktock.github.io/container2wasm-demo/`).
 
-This is implemented by running a networking stack ([`c2w-net-proxy`](../../../extras/c2w-net-proxy)) inside browser and connecting it to emscripten levaraging [Mock service Worker's WebSocket interception](https://mswjs.io/docs/basics/handling-websocket-events/)
+This is implemented by running a networking stack ([`c2w-net-proxy`](../../../extras/c2w-net-proxy)) inside browser and connecting it to emscripten.
 
 Please refer to [`../networking/fetch/`](../networking/fetch/) for more details about Fetch-API-based networking.
 
