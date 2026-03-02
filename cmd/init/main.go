@@ -435,16 +435,20 @@ func parseInfo(infoD []byte) (info runtimeFlags) {
 		inst := elms[0]
 		o := strings.TrimLeft(elms[1], " ")
 		switch inst {
-		case "m":
+		case "m", "mr":
 			if o == "" {
 				// no path is specified; nop
 				continue
+			}
+			opts := []string{"bind"}
+			if inst == "mr" {
+				opts = append(opts, "ro")
 			}
 			info.mounts = append(info.mounts, runtimespec.Mount{
 				Type:        "bind",
 				Source:      filepath.Join("/mnt/wasi0", o),
 				Destination: filepath.Join("/", o), // TODO: ensure not outside of "/"
-				Options:     []string{"bind"},
+				Options:     opts,
 			})
 			log.Printf("Prepared mount wasi0 => %q", o)
 		case "c":
