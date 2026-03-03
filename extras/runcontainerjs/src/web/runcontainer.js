@@ -575,6 +575,7 @@ function connect(name, shared, toNet, certbuf, log) {
                                         url: resp.url
                                     }));
                                     connObj.respBodybuf = new Uint8Array(0);
+                                    connObj.respBodyError = error;
                                     connObj.done = true;
                                     console.log("failed to fetch body: " + error);
                                 });
@@ -627,6 +628,11 @@ function connect(name, shared, toNet, certbuf, log) {
                 case "http_readbody":
                     if ((httpConnections[req_.id] == undefined) || (httpConnections[req_.id].response == null)) {
                         console.log(name + ":" + "response body is not available");
+                        streamStatus[0] = -1;
+                        break;
+                    }
+                    if (httpConnections[req_.id].respBodyError != null) {
+                        console.log(name + ":" + "error on reading response body:", httpConnections[req_.id].respBodyError);
                         streamStatus[0] = -1;
                         break;
                     }
@@ -702,8 +708,9 @@ function connect(name, shared, toNet, certbuf, log) {
                                     if (hashHex != digest) {
                                         // TODO: return error
                                         connObj.respBodybuf = new Uint8Array(0);
+                                        connObj.respBodyError = new Error("digest unmatch");
                                         connObj.done = true;
-                                        console.log("failed to fetch layer: " + error);
+                                        console.log("failed to fetch layer: " + connObj.respBodyError);
                                         return;
                                     }
                                     if (req_.isGzipN == 0) {
@@ -744,6 +751,11 @@ function connect(name, shared, toNet, certbuf, log) {
                 case "layer_readat":
                     if ((httpConnections[req_.id] == undefined) || (httpConnections[req_.id].response == null) && (httpConnections[req_.id].done)) {
                         console.log(name + ":" + "response body is not available");
+                        streamStatus[0] = -1;
+                        break;
+                    }
+                    if (httpConnections[req_.id].respBodyError != null) {
+                        console.log(name + ":" + "error on reading response body:", httpConnections[req_.id].respBodyError);
                         streamStatus[0] = -1;
                         break;
                     }
