@@ -215,6 +215,9 @@ func doInit() error {
 			log.Printf("finished udhcpc: %s\n %s\n", string(o), string(o2))
 		}
 	}
+	if o, err := exec.Command("ip", "link", "set", "dev", "lo", "up").CombinedOutput(); err != nil {
+		return fmt.Errorf("failed lo up: %v: %w", string(o), err)
+	}
 
 	if externalBundle {
 		if info.bundle == "" {

@@ -52,7 +52,9 @@ env: SSL_CERT_FILE=/.wasmenv/proxy.crt
 env: https_proxy=http://192.168.127.253:80
 env: http_proxy=http://192.168.127.253:80
 env: HTTPS_PROXY=http://192.168.127.253:80
-env: HTTP_PROXY=http://192.168.127.253:80\n`;
+env: HTTP_PROXY=http://192.168.127.253:80
+env: no_proxy=localhost,127.0.0.1
+env: NO_PROXY=localhost,127.0.0.1\n`;
         if (imageAddr != "") {
             info += 'b: 9p=192.168.127.252\n';
         }
