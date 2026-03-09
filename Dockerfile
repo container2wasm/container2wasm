@@ -41,7 +41,7 @@ ARG QEMU_REPO_VERSION=8604ed49a3cde392890b014a8d5a959c8a2fe72a
 ARG SOURCE_REPO=https://github.com/ktock/container2wasm
 ARG SOURCE_REPO_VERSION=v0.8.3
 
-ARG ZLIB_VERSION=1.3.1
+ARG ZLIB_VERSION=1.3.2
 ARG GLIB_MINOR_VERSION=2.75
 ARG GLIB_VERSION=${GLIB_MINOR_VERSION}.0
 ARG PIXMAN_VERSION=0.42.2
@@ -375,7 +375,7 @@ RUN mkdir -p $TARGET
 FROM glib-emscripten-base AS zlib-emscripten-dev
 ARG ZLIB_VERSION
 RUN mkdir -p /zlib
-RUN curl -Ls https://zlib.net/zlib-$ZLIB_VERSION.tar.xz | tar xJC /zlib --strip-components=1
+RUN curl -LsS https://zlib.net/fossils/zlib-$ZLIB_VERSION.tar.gz | tar zxC /zlib --strip-components=1
 WORKDIR /zlib
 RUN emconfigure ./configure --prefix=$TARGET --static
 RUN make install
