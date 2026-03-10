@@ -620,7 +620,7 @@ func findListener(listenFd int) (net.Listener, error) {
 func NewImageServer(ctx context.Context, imageAddr string, platform imagespec.Platform) (*p9.Server, func(), error) {
 	config, rootNode, configD, waitInit, err := fsFromImage(ctx, imageAddr, platform, true)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to fetch image %q: %w", imageAddr, err)
 	}
 	s, err := generateSpec(*config, rootNode)
 	if err != nil {
@@ -1066,6 +1066,9 @@ func newTarNode(q *qidSet, trRaw io.ReaderAt) (*NodeLayer, error) {
 					fullname, h.Linkname, err)
 			}
 			target.attr.NLink++
+			if parentDir.children == nil {
+				parentDir.children = make(map[string]*Node)
+			}
 			parentDir.children[base] = target
 		default:
 			// Normal node so simply create it.

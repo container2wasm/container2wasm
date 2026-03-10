@@ -9,17 +9,11 @@
   "author": "ktock",
   "license": " Apache-2.0",
   "devDependencies": {
-    "msw": "^2.6.8",
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.2.17",
     "ts-loader": "^9.5.1",
     "webpack": "^5.89.0"
-  },
-  "msw": {
-    "workerDirectory": [
-      "./out"
-    ]
   }
 }

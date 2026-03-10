@@ -5,7 +5,7 @@ PKG=github.com/ktock/container2wasm
 VERSION=$(shell git describe --match 'v[0-9]*' --dirty='.m' --always --tags)
 REVISION=$(shell git rev-parse HEAD)$(shell if ! git diff --no-ext-diff --quiet --exit-code; then echo .m; fi)
 GO_EXTRA_LDFLAGS=-extldflags '-static'
-GO_LD_FLAGS=-ldflags '-s -w -X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Revision=$(REVISION) $(GO_EXTRA_LDFLAGS)'
+GO_LD_FLAGS=-trimpath -ldflags '-s -w -X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Revision=$(REVISION) $(GO_EXTRA_LDFLAGS)'
 GO_BUILDTAGS=-tags "osusergo netgo static_build"
 GO_MODULE_DIRS=$(shell find . -type f -name go.mod -exec dirname {} \;)
 
@@ -20,10 +20,10 @@ c2w-net:
 	CGO_ENABLED=0 go build -o $(PREFIX)/c2w-net $(GO_LD_FLAGS) $(GO_BUILDTAGS) -v ./cmd/c2w-net
 
 c2w-net-proxy.wasm:
-	cd extras/c2w-net-proxy/ ; GOOS=wasip1 GOARCH=wasm go build -o $(PREFIX)/c2w-net-proxy.wasm .
+	cd extras/c2w-net-proxy/ ; GOOS=wasip1 GOARCH=wasm go build -o $(PREFIX)/c2w-net-proxy.wasm $(GO_LD_FLAGS) .
 
 imagemounter.wasm:
-	cd extras/imagemounter ; GOOS=wasip1 GOARCH=wasm go build -o $(PREFIX)/imagemounter.wasm .
+	cd extras/imagemounter ; GOOS=wasip1 GOARCH=wasm go build -o $(PREFIX)/imagemounter.wasm $(GO_LD_FLAGS) .
 
 install:
 	@if [ "$$(uname -s)" = "Darwin" ]; then \

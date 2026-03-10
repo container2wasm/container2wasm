@@ -37,7 +37,7 @@
               info += 'n:' + genmac() + '\n';
               start(info);
           } else if (netParam.mode == 'browser') {
-              const stackAddress = 'http://localhost:9999/'; // listened and served by MSW inside browser
+              const stackAddress = 'http://localhost:9999/'; // listened and served by a mock inside browser
               const stackWorkerFile = location.origin + "/dist/stack-worker.js";
               const stackImage = location.origin + "/c2w-net-proxy.wasm.gzip";
               Module['websocket'] = {
@@ -61,20 +61,31 @@ env: HTTP_PROXY=http://192.168.127.253:80`;
       }
       function start(info) {
           Module['preRun'].push((mod) => {
-              mod.FS.mkdir('/pack');
+              try { FS.mkdir('/pack'); } catch (e) {}
               mod.FS.writeFile('/pack/info', info);
+          });
+          var readableCallbacks = [];
+          Module.pty.onReadable(() => {
+              readableCallbacks.forEach(cb => cb());
+              readableCallbacks = [];
+          });
+          Module['preRun'].push((Module) => {
+              Module['TTY'].stream_ops.poll = (stream, timeout, notifyCallback) => {
+                  if (Module.pty.readable) {
+                      return 1;
+                  }
+                  if (notifyCallback != null) {
+                      notifyCallback.registerCleanupFunc(() => {
+                          const i = readableCallbacks.indexOf(notifyCallback);
+                          if (i != -1) readableCallbacks.splice(i, 1);
+                      });
+                      readableCallbacks.push(notifyCallback);
+                  }
+                  return 0;
+              };
           });
           (async () => {
               const instance = await initEmscriptenModule(Module);
-              
-              var oldPoll = Module['TTY'].stream_ops.poll;
-              var pty = Module['pty'];
-              Module['TTY'].stream_ops.poll = function(stream, timeout){
-                  if (!pty.readable) {
-                      return (pty.readable ? 1 : 0) | (pty.writable ? 4 : 0);
-                  }
-                  return oldPoll.call(stream, timeout);
-              }
           })();
       }
       function getNetParam() {

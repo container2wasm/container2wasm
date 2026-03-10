@@ -64,6 +64,18 @@ function wasiHack(wasi, certfd, connfd) {
         // TODO
         return 0;
     }
+    var stdoutBuf = "";
+    var stderrBuf = "";
+    function flushLog(msg) {
+        if (msg.endsWith('\n') || msg.endsWith('\r\n')) {
+            postMessage({
+                type: "log",
+                msg: msg.trim(),
+            });
+            return true;
+        }
+        return false;
+    }
     var _fd_write = wasi.wasiImport.fd_write;
     wasi.wasiImport.fd_write = (fd, iovs_ptr, iovs_len, nwritten_ptr) => {
         if ((fd == 1) || (fd == 2) || (fd == certfd)) {
@@ -77,7 +89,21 @@ function wasiHack(wasi, certfd, connfd) {
                 if (buf.length == 0) {
                     continue;
                 }
-                console.log(new TextDecoder().decode(buf));
+                const msg = new TextDecoder().decode(buf);
+                if ((fd == 1) || (fd == 2)) {
+                    console.debug(msg);
+                    if (fd == 1) {
+                        stdoutBuf += msg;
+                        if (flushLog(stdoutBuf)) {
+                            stdoutBuf = "";
+                        }
+                    } else {
+                        stderrBuf += msg;
+                        if (flushLog(stderrBuf)) {
+                            stderrBuf = "";
+                        }
+                    }
+                }
                 if (fd == certfd) {
                     certbuf = appendData(certbuf, buf);
                 }

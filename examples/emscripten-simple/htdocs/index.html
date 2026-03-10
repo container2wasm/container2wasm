@@ -26,14 +26,31 @@
       // the container. Refer to /cmd/init/main.go for the detail of info file.
       let info = "t:" + Math.round(new Date() / 1000) + "\n";
       Module['preRun'].push((mod) => {
-          mod.FS.mkdir('/pack');
+          try { FS.mkdir('/pack'); } catch (e) {}
           mod.FS.writeFile('/pack/info', info);
       });
-
+      var readableCallbacks = [];
+      Module.pty.onReadable(() => {
+          readableCallbacks.forEach(cb => cb());
+          readableCallbacks = [];
+      });
+      Module['preRun'].push((Module) => {
+          Module['TTY'].stream_ops.poll = (stream, timeout, notifyCallback) => {
+              if (Module.pty.readable) {
+                  return 1;
+              }
+              if (notifyCallback != null) {
+                  notifyCallback.registerCleanupFunc(() => {
+                      const i = readableCallbacks.indexOf(notifyCallback);
+                      if (i != -1) readableCallbacks.splice(i, 1);
+                  });
+                  readableCallbacks.push(notifyCallback);
+              }
+              return 0;
+          };
+      });
       (async () => {
           const instance = await initEmscriptenModule(Module);
-          var oldPoll = Module['TTY'].stream_ops.poll;
-          Module['TTY'].stream_ops.poll = (stream, timeout) => oldPoll.call(stream, 0);
       })();
     </script>
   </body>
