@@ -178,7 +178,7 @@ RUN GOARCH=riscv64 go build -ldflags "-s -w -extldflags '-static'" -tags "osuser
 FROM riscv64/alpine:20221110
 COPY --from=dev /out/httphello /
 ENTRYPOINT ["/httphello", "0.0.0.0:80"]
-`},
+`, BuildArgs: []string{"--platform=linux/riscv64"}},
 			},
 			Prepare: func(t *testing.T, env utils.Env) {
 				assert.NilError(t, os.WriteFile(filepath.Join(env.Workdir, "httphello-port"), []byte(fmt.Sprintf("%d", utils.GetPort(t))), 0755))
