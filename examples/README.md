@@ -15,3 +15,4 @@ Please refer to [README](./../README.md) for basic examples (e.g. Ubuntu on WASM
 - [`./no-conversion-wasi-browser`](./no-conversion-wasi-browser/): Running container on browser without pre-conversion of container images, with WASI-on-browser approach.
 - [`./no-conversion-emscripten`](./no-conversion-emscripten/): Running container on browser without pre-conversion of container images, using QEMU inside browser.
 - [`./raspi3ap-qemu`](./raspi3ap-qemu): Raspberry Pi board emulation on browser
+- [`./llm-agent`](./llm-agent): Using container inside browser as an execution environment for LLM agents
