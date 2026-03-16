@@ -159,7 +159,7 @@ func TestWazero(t *testing.T) {
 			Name: "wazero-net-port",
 			Inputs: []utils.Input{
 				{Image: "httphello-alpine-x86-64", Architecture: utils.X8664, Dockerfile: `
-FROM golang:1.21-bullseye AS dev
+FROM golang:1.26 AS dev
 COPY ./tests/httphello /httphello
 WORKDIR /httphello
 RUN GOARCH=amd64 go build -ldflags "-s -w -extldflags '-static'" -tags "osusergo netgo static_build" -o /out/httphello main.go
@@ -169,7 +169,7 @@ COPY --from=dev /out/httphello /
 ENTRYPOINT ["/httphello", "0.0.0.0:80"]
 `},
 				{Image: "httphello-alpine-rv64", ConvertOpts: []string{"--target-arch=riscv64"}, Architecture: utils.RISCV64, Dockerfile: `
-FROM golang:1.21-bullseye AS dev
+FROM riscv64/golang:1.26 AS dev
 COPY ./tests/httphello /httphello
 WORKDIR /httphello
 RUN GOARCH=riscv64 go build -ldflags "-s -w -extldflags '-static'" -tags "osusergo netgo static_build" -o /out/httphello main.go
