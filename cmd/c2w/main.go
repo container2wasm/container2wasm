@@ -356,7 +356,12 @@ func prepareSourceImg(builderPath, imgName, tmpdir, targetarch string) error {
 			return fmt.Errorf("failed to pull the image. Try \"--target-arch\" when specifying an architecture: %w", err)
 		}
 	}
-	saveCmd := exec.Command(builderPath, "save", imgName)
+
+	saveArgs := []string{"save"}
+	if targetarch != "" {
+		saveArgs = append(saveArgs, "--platform=linux/"+targetarch)
+	}
+	saveCmd := exec.Command(builderPath, append(saveArgs, imgName)...)
 	outR, err := saveCmd.StdoutPipe()
 	if err != nil {
 		return err

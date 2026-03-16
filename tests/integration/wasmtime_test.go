@@ -160,7 +160,7 @@ func TestWasmtime(t *testing.T) {
 			Name: "wasmtime-net-port",
 			Inputs: []utils.Input{
 				{Image: "httphello-alpine-x86-64", Architecture: utils.X8664, Dockerfile: `
-FROM golang:1.21-bullseye AS dev
+FROM golang:1.26 AS dev
 COPY ./tests/httphello /httphello
 WORKDIR /httphello
 RUN GOARCH=amd64 go build -ldflags "-s -w -extldflags '-static'" -tags "osusergo netgo static_build" -o /out/httphello main.go
@@ -170,7 +170,7 @@ COPY --from=dev /out/httphello /
 ENTRYPOINT ["/httphello", "0.0.0.0:80"]
 `},
 				{Image: "httphello-alpine-rv64", ConvertOpts: []string{"--target-arch=riscv64"}, Architecture: utils.RISCV64, Dockerfile: `
-FROM golang:1.21-bullseye AS dev
+FROM riscv64/golang:1.26 AS dev
 COPY ./tests/httphello /httphello
 WORKDIR /httphello
 RUN GOARCH=riscv64 go build -ldflags "-s -w -extldflags '-static'" -tags "osusergo netgo static_build" -o /out/httphello main.go
@@ -178,7 +178,7 @@ RUN GOARCH=riscv64 go build -ldflags "-s -w -extldflags '-static'" -tags "osuser
 FROM riscv64/alpine:20221110
 COPY --from=dev /out/httphello /
 ENTRYPOINT ["/httphello", "0.0.0.0:80"]
-`},
+`, BuildArgs: []string{"--platform=linux/riscv64"}},
 			},
 			Prepare: func(t *testing.T, env utils.Env) {
 				assert.NilError(t, os.WriteFile(filepath.Join(env.Workdir, "httphello-port"), []byte(fmt.Sprintf("%d", utils.GetPort(t))), 0755))

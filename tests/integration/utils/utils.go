@@ -111,7 +111,10 @@ func runTest(t *testing.T, tt TestSpec, in Input, runtimeEnv []string) {
 		if in.Dockerfile != "" {
 			df := filepath.Join(tmpdir, "Dockerfile-integrationtest")
 			assert.NilError(t, os.WriteFile(df, []byte(in.Dockerfile), 0755))
-			dcmd := exec.Command("docker", append([]string{"build", "--progress=plain", "-t", in.Image, "-f", df, AssetPath}, in.BuildArgs...)...)
+			buildFlags := []string{"build", "--progress=plain", "-t", in.Image}
+			buildFlags = append(buildFlags, in.BuildArgs...)
+			buildFlags = append(buildFlags, "-f", df, AssetPath)
+			dcmd := exec.Command("docker", buildFlags...)
 			dcmd.Stdout = os.Stdout
 			dcmd.Stderr = os.Stderr
 			assert.NilError(t, dcmd.Run())
