@@ -335,10 +335,10 @@ func prepareSourceImg(builderPath, imgName, tmpdir, targetarch string) error {
 		imageArch := inspectData[0]["Architecture"].(string)
 		imagePlatform, err := platforms.Parse(imageArch)
 		if err != nil {
-			log.Printf("failed to parse archtecture of image (%q): %v\n", imageArch, err)
+			log.Printf("failed to parse architecture of image (%q): %v\n", imageArch, err)
 			needsPull = true
 		} else if !mc.Match(imagePlatform) {
-			log.Printf("unexpected archtecture %v (target: %v). Try \"--target-arch\" when specifying an architecture.\n", imageArch, targetarch)
+			log.Printf("unexpected architecture %v (target: %v). Try \"--target-arch\" when specifying an architecture.\n", imageArch, targetarch)
 			needsPull = true
 		}
 	}
