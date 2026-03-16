@@ -47,6 +47,11 @@ func main() {
 			Usage: "target architecture of the source image to use",
 			Value: "amd64",
 		},
+		cli.StringFlag{
+			Name:  "target",
+			Usage: "WASI target: wasi-p1 (default) or wasi-p2",
+			Value: "wasi-p1",
+		},
 		cli.StringSliceFlag{
 			Name:  "build-arg",
 			Usage: "Additional build arguments",
@@ -127,6 +132,10 @@ func rootAction(clicontext *cli.Context) error {
 	}
 	if clicontext.Bool("legacy") {
 		legacy = true
+	}
+	target := clicontext.String("target")
+	if target != "wasi-p1" && target != "wasi-p2" {
+		return fmt.Errorf("invalid target %q: must be wasi-p1 or wasi-p2", target)
 	}
 	destDir, destFile := ".", defaultOutputFile
 	if clicontext.Bool("to-js") {
@@ -236,6 +245,12 @@ func build(builderPath string, srcImgPath string, destDir, destFile string, clic
 		"--build-arg", fmt.Sprintf("LINUX_LOGLEVEL=%d", linuxLogLevel),
 		"--build-arg", fmt.Sprintf("INIT_DEBUG=%v", initDebug),
 	)
+	// WASI target (p1 or p2)
+	wasiTarget := "p1"
+	if clicontext.String("target") == "wasi-p2" {
+		wasiTarget = "p2"
+	}
+	buildxArgs = append(buildxArgs, "--build-arg", fmt.Sprintf("WASI_TARGET=%s", wasiTarget))
 	if clicontext.Bool("external-bundle") {
 		buildxArgs = append(buildxArgs, "--build-arg", "EXTERNAL_BUNDLE=true")
 	}
@@ -300,6 +315,12 @@ func buildWithLegacyBuilder(builderPath string, srcImgPath, destDir, destFile st
 		"--build-arg", fmt.Sprintf("LINUX_LOGLEVEL=%d", linuxLogLevel),
 		"--build-arg", fmt.Sprintf("INIT_DEBUG=%v", initDebug),
 	)
+	// WASI target (p1 or p2)
+	wasiTarget := "p1"
+	if clicontext.String("target") == "wasi-p2" {
+		wasiTarget = "p2"
+	}
+	buildArgs = append(buildArgs, "--build-arg", fmt.Sprintf("WASI_TARGET=%s", wasiTarget))
 	if clicontext.Bool("external-bundle") {
 		buildArgs = append(buildArgs, "--build-arg", "EXTERNAL_BUNDLE=true")
 	}

@@ -1,0 +1,27 @@
+[package]
+name = "fs-wrapper"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.51"
+wit-bindgen-rt = { version = "0.44", features = ["bitflags"] }
+
+[package.metadata.component]
+package = "c2w:fs-wrapper"
+
+[package.metadata.component.target]
+# Use local WIT files in wit/deps/ (matching wasmtime v41.0.0 preview1 adapter WASI 0.2.6)
+path = "wit"
+
+# Local WIT file paths - using bundled files from wasmtime v41.0.0 to match WASI 0.2.6
+[package.metadata.component.target.dependencies]
+"wasi:io" = { path = "wit/deps/wasi-io" }
+"wasi:clocks" = { path = "wit/deps/wasi-clocks" }
+"wasi:filesystem" = { path = "wit/deps/wasi-filesystem" }
+"wasi:cli" = { path = "wit/deps/wasi-cli" }
+"wasi:sockets" = { path = "wit/deps/wasi-sockets" }
+"wasi:random" = { path = "wit/deps/wasi-random" }
