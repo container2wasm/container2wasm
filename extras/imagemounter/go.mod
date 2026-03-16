@@ -1,6 +1,6 @@
 module imagemounter
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/containerd/containerd v1.7.21
@@ -14,7 +14,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.20.0
 )
 
 require (
