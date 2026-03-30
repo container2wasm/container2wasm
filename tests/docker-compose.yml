@@ -57,7 +57,7 @@ services:
     volumes:
       - certs:/certs
   selenium-hub:
-    image: selenium/hub:4.33
+    image: selenium/hub:4
     container_name: selenium-hub
     hostname: selenium-hub
   testpage:
