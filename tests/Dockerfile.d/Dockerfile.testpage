@@ -4,7 +4,7 @@ FROM golang:1.26 AS dev-c2w-net-proxy
 COPY . .
 RUN make c2w-net-proxy.wasm && mkdir /out/ && cp ./out/c2w-net-proxy.wasm /out/
 
-FROM node:25 AS dev
+FROM node:26 AS dev
 ARG C2W_NET_PROXY_VERSION
 COPY ./examples/emscripten/htdocs /assets
 COPY ./tests/scripts/testpage/index.html /assets/
