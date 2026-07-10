@@ -23,7 +23,7 @@
       //termios.cflag |= CS8;
       slave.ioctl("TCSETS", new Termios(termios.iflag, termios.oflag, termios.cflag, termios.lflag, termios.cc));
       xterm.loadAddon(master);
-      const worker = new Worker("./worker.js"+location.search);
+      const worker = new Worker("./worker.js"+location.search, { type: "module" });
 
       var nwStack;
       var netParam = getNetParam();
@@ -32,7 +32,7 @@
           if (netParam.mode == 'delegate') {
               nwStack = delegate(worker, workerImage, netParam.param);
           } else if (netParam.mode == 'browser') {
-              nwStack = newStack(worker, workerImage, new Worker("./stack-worker.js"+location.search), location.origin + "/c2w-net-proxy.wasm");
+              nwStack = newStack(worker, workerImage, new Worker("./stack-worker.js"+location.search, { type: "module" }), location.origin + "/c2w-net-proxy.wasm");
           }
       }
       if (!nwStack) {
