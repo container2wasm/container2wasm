@@ -15,8 +15,10 @@ ARG RUNC_VERSION=v1.3.0
 # ARG INIT_DEBUG=false
 ARG LINUX_LOGLEVEL=7
 ARG INIT_DEBUG=true
-ARG VM_MEMORY_SIZE_MB=128
+ARG VM_MEMORY_SIZE_MB=2047
 ARG VM_CORE_NUMS=1
+ARG WASM_INITIAL_MEMORY_MB=2047
+ARG WASM_MAXIMUM_MEMORY_MB=4096
 ARG QEMU_MIGRATION=true
 ARG NO_VMTOUCH=
 ARG EXTERNAL_BUNDLE=
@@ -540,6 +542,7 @@ RUN cmake . && make && mkdir /out/ && mv tini /out/
 
 FROM gcc-x86-64-linux-gnu-base AS grub-amd64-dev
 ARG LINUX_LOGLEVEL
+ARG CMDLINE_EXTRA=
 RUN apt-get update && apt-get install -y mkisofs xorriso wget bison flex python-is-python3 gettext
 WORKDIR /work/
 RUN wget https://ftp.gnu.org/gnu/grub/grub-2.06.tar.gz
@@ -551,7 +554,7 @@ RUN make install
 RUN mkdir -p /iso/boot/grub
 COPY --link --from=linux-amd64-dev /out/bzImage /iso/boot/grub/
 COPY --link --from=assets ./config/bochs/grub.cfg.template /
-RUN cat /grub.cfg.template | LOGLEVEL=$LINUX_LOGLEVEL envsubst > /iso/boot/grub/grub.cfg
+RUN cat /grub.cfg.template | LOGLEVEL=$LINUX_LOGLEVEL CMDLINE_EXTRA="$CMDLINE_EXTRA" envsubst '$LOGLEVEL $CMDLINE_EXTRA' > /iso/boot/grub/grub.cfg && cat /iso/boot/grub/grub.cfg
 RUN mkdir /out && grub-mkrescue --directory ./grub-core -o /out/boot.iso /iso
 
 FROM ubuntu AS bios-amd64-dev
@@ -568,6 +571,13 @@ WORKDIR /work
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     GOARCH=amd64 go build -ldflags "-s -w -extldflags '-static'" -tags "osusergo netgo static_build" -o /out/init ./cmd/init
+
+FROM golang-base AS export-warm-state-dev
+COPY --link --from=assets / /work
+WORKDIR /work
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    go build -ldflags "-s -w" -o /out/export-warm-state ./cmd/export-warm-state
 
 FROM gcc-x86-64-linux-gnu-base AS vmtouch-amd64-dev
 RUN git clone https://github.com/hoytech/vmtouch.git && \
@@ -860,7 +870,9 @@ RUN if test "${QEMU_MIGRATION}" = "true"  ; then /get-qemu-state -output=/pack/v
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-amd64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -Wno-error=unused-but-set-variable -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=$((3000*1024*1024)) -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
+ARG WASM_INITIAL_MEMORY_MB
+ARG WASM_MAXIMUM_MEMORY_MB
+RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -Wno-error=unused-but-set-variable -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sINITIAL_MEMORY=${WASM_INITIAL_MEMORY_MB}MB -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=${WASM_MAXIMUM_MEMORY_MB}MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=x86_64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
     --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \
@@ -896,7 +908,9 @@ FROM js-qemu-amd64-${LOAD_MODE} AS js-qemu-amd64
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-aarch64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -fno-inline-functions -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 $XTERM_PTY_CFLAGS " ; \
+ARG WASM_INITIAL_MEMORY_MB
+ARG WASM_MAXIMUM_MEMORY_MB
+RUN EXTRA_CFLAGS="-O3 -fno-inline-functions -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sINITIAL_MEMORY=${WASM_INITIAL_MEMORY_MB}MB -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=${WASM_MAXIMUM_MEMORY_MB}MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=aarch64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
     --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \
@@ -927,7 +941,9 @@ FROM js-qemu-aarch64-$LOAD_MODE AS js-aarch64
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-riscv64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
+ARG WASM_INITIAL_MEMORY_MB
+ARG WASM_MAXIMUM_MEMORY_MB
+RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sINITIAL_MEMORY=${WASM_INITIAL_MEMORY_MB}MB -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=${WASM_MAXIMUM_MEMORY_MB}MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=riscv64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
     --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \

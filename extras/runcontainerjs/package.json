@@ -2,13 +2,15 @@
   "name": "runcontainer",
   "version": "0.0.0",
   "description": "",
+  "type": "module",
   "main": "dist/runcontainer",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "author": "ktock",
   "license": " Apache-2.0",
   "devDependencies": {
+    "vitest": "^3.0.5",
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
