@@ -9,6 +9,7 @@ ARG EMSDK_VERSION=3.1.40 # TODO: support recent version
 ARG EMSDK_VERSION_QEMU=4.0.10
 ARG BINARYEN_VERSION=114
 ARG BUSYBOX_VERSION=1.36.1
+ARG BUSYBOX_VERSION_UNDERSCORE=1_36_1
 ARG RUNC_VERSION=v1.3.0
 
 # ARG LINUX_LOGLEVEL=0
@@ -216,12 +217,12 @@ FROM binfmt-$TARGETARCH AS binfmt-dev
 
 FROM gcc-riscv64-linux-gnu-base AS busybox-riscv64-dev
 ARG BUSYBOX_VERSION
+ARG BUSYBOX_VERSION_UNDERSCORE
 RUN apt-get update -y && apt-get install -y gcc bzip2 wget
 WORKDIR /work
-RUN wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN bzip2 -d busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN tar xvf busybox-${BUSYBOX_VERSION}.tar
-WORKDIR /work/busybox-${BUSYBOX_VERSION}
+RUN wget https://github.com/mirror/busybox/archive/refs/tags/${BUSYBOX_VERSION_UNDERSCORE}.tar.gz
+RUN tar -xvf ${BUSYBOX_VERSION_UNDERSCORE}.tar.gz
+WORKDIR /work/busybox-${BUSYBOX_VERSION_UNDERSCORE}
 RUN make CROSS_COMPILE=riscv64-linux-gnu- LDFLAGS=--static defconfig
 RUN make CROSS_COMPILE=riscv64-linux-gnu- LDFLAGS=--static -j$(nproc)
 RUN mkdir -p /out/bin && mv busybox /out/bin/busybox
@@ -503,12 +504,12 @@ COPY --link --from=linux-amd64-config-dev /work-buildlinux/linux/.config /
 
 FROM gcc-x86-64-linux-gnu-base AS busybox-amd64-dev
 ARG BUSYBOX_VERSION
+ARG BUSYBOX_VERSION_UNDERSCORE
 RUN apt-get update -y && apt-get install -y gcc bzip2 wget
 WORKDIR /work
-RUN wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN bzip2 -d busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN tar xvf busybox-${BUSYBOX_VERSION}.tar
-WORKDIR /work/busybox-${BUSYBOX_VERSION}
+RUN wget https://github.com/mirror/busybox/archive/refs/tags/${BUSYBOX_VERSION_UNDERSCORE}.tar.gz
+RUN tar -xvf ${BUSYBOX_VERSION_UNDERSCORE}.tar.gz
+WORKDIR /work/busybox-${BUSYBOX_VERSION_UNDERSCORE}
 RUN make CROSS_COMPILE=x86_64-linux-gnu- LDFLAGS=--static defconfig
 RUN make CROSS_COMPILE=x86_64-linux-gnu- LDFLAGS=--static -j$(nproc)
 RUN mkdir -p /out/bin && mv busybox /out/bin/busybox
@@ -627,12 +628,12 @@ COPY --link --from=linux-aarch64-config-dev /work-buildlinux/linux/.config /
 
 FROM gcc-aarch64-linux-gnu-base AS busybox-aarch64-dev
 ARG BUSYBOX_VERSION
+ARG BUSYBOX_VERSION_UNDERSCORE
 RUN apt-get update -y && apt-get install -y gcc bzip2 wget
 WORKDIR /work
-RUN wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN bzip2 -d busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN tar xvf busybox-${BUSYBOX_VERSION}.tar
-WORKDIR /work/busybox-${BUSYBOX_VERSION}
+RUN wget https://github.com/mirror/busybox/archive/refs/tags/${BUSYBOX_VERSION_UNDERSCORE}.tar.gz
+RUN tar -xvf ${BUSYBOX_VERSION_UNDERSCORE}.tar.gz
+WORKDIR /work/busybox-${BUSYBOX_VERSION_UNDERSCORE}
 RUN make CROSS_COMPILE=aarch64-linux-gnu- LDFLAGS=--static defconfig
 RUN make CROSS_COMPILE=aarch64-linux-gnu- LDFLAGS=--static -j$(nproc)
 RUN mkdir -p /out/bin && mv busybox /out/bin/busybox
