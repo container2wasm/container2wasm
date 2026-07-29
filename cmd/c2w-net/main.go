@@ -2,15 +2,18 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	gvntypes "github.com/containers/gvisor-tap-vsock/pkg/types"
@@ -34,9 +37,9 @@ func main() {
 		wsCert        = flag.String("ws-cert", "", "TLS cert for ws connection")
 		wsKey         = flag.String("ws-key", "", "TLS key for ws connection")
 		invoke        = flag.Bool("invoke", false, "invoke the container with NW support")
-		mac           = flag.String("mac", vmMAC, "mac address assigned to the container")
-		wasiAddr      = flag.String("wasi-addr", "127.0.0.1:1234", "IP address used to communicate between wasi and network stack (valid only with invoke flag)") // TODO: automatically use empty random port or unix socket
+		wasiAddr      = flag.String("wasi-addr", "127.0.0.1:1234", "IP address used to communicate between wasi and network stack (valid only with invoke flag)")
 		wasmtimeCli13 = flag.Bool("wasmtime-cli-13", false, "Use old wasmtime CLI (<= 13)")
+		mac           = flag.String("mac", vmMAC, "mac address assigned to the container")
 	)
 	flag.Parse()
 	args := flag.Args()
@@ -49,10 +52,8 @@ func main() {
 		parts := strings.Split(p, ":")
 		switch len(parts) {
 		case 3:
-			// IP:PORT1:PORT2
 			forwards[strings.Join(parts[0:2], ":")] = strings.Join([]string{vmIP, parts[2]}, ":")
 		case 2:
-			// PORT1:PORT2
 			forwards["0.0.0.0:"+parts[0]] = vmIP + ":" + parts[1]
 		}
 	}
@@ -62,16 +63,24 @@ func main() {
 		log.SetOutput(io.Discard)
 	}
 	log.Printf("port mapping: %+v\n", forwards)
+
+	var gvisorForwards map[string]string
+	if *listenWS {
+		gvisorForwards = nil
+	} else {
+		gvisorForwards = forwards
+	}
+
 	config := &gvntypes.Configuration{
 		Debug:             *debug,
 		MTU:               1500,
 		Subnet:            "192.168.127.0/24",
 		GatewayIP:         gatewayIP,
 		GatewayMacAddress: "5a:94:ef:e4:0c:dd",
+		Forwards:          gvisorForwards,
 		DHCPStaticLeases: map[string]string{
-			vmIP: *mac,
+			*mac: vmIP,
 		},
-		Forwards: forwards,
 		NAT: map[string]string{
 			"192.168.127.254": "127.0.0.1",
 		},
@@ -82,6 +91,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	portMappings := make(map[string]string)
+	for localAddr, remoteAddr := range forwards {
+		_, remotePort, err := net.SplitHostPort(remoteAddr)
+		if err != nil {
+			log.Printf("invalid remote address %s: %v\n", remoteAddr, err)
+			continue
+		}
+		portMappings[localAddr] = remotePort
+	}
+
 	if *invoke {
 		go func() {
 			fmt.Fprintf(os.Stderr, "waiting for NW initialization\n")
@@ -98,7 +118,6 @@ func main() {
 			if conn == nil {
 				log.Fatalf("failed to connect to vm: lasterr=%d", err)
 			}
-			// We register our VM network as a qemu "-netdev socket".
 			if err := vn.AcceptQemu(context.TODO(), conn); err != nil {
 				log.Printf("failed AcceptQemu: %v\n", err)
 			}
@@ -118,8 +137,26 @@ func main() {
 		return
 	}
 	if *listenWS {
+		var forwardersStarted sync.Once
+
 		http.Handle("/", websocket.Handler(func(ws *websocket.Conn) {
 			ws.PayloadType = websocket.BinaryFrame
+
+			forwardersStarted.Do(func() {
+				if len(portMappings) > 0 {
+					go func() {
+						containerIP := waitForContainerIP(vn)
+						log.Printf("container IP detected: %s\n", containerIP)
+
+						for localAddr, remotePort := range portMappings {
+							remoteAddr := net.JoinHostPort(containerIP, remotePort)
+							log.Printf("forwarding %s -> %s\n", localAddr, remoteAddr)
+							go startPortForwarder(localAddr, remoteAddr, vn)
+						}
+					}()
+				}
+			})
+
 			if err := vn.AcceptQemu(context.TODO(), ws); err != nil {
 				log.Printf("forwarding finished: %v\n", err)
 			}
@@ -139,10 +176,107 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// We register our VM network as a qemu "-netdev socket".
 	if err := vn.AcceptQemu(context.TODO(), conn); err != nil {
 		panic(err)
 	}
+}
+
+func waitForContainerIP(vn *gvnvirtualnetwork.VirtualNetwork) string {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	timeout := time.After(10 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			log.Printf("timeout waiting for DHCP lease, falling back to default IP %s\n", vmIP)
+			return vmIP
+		case <-ticker.C:
+			if ip, err := getContainerIP(vn); err == nil {
+				return ip
+			}
+		}
+	}
+}
+
+func getContainerIP(vn *gvnvirtualnetwork.VirtualNetwork) (string, error) {
+	req := httptest.NewRequest("GET", "/services/dhcp/leases", nil)
+	w := httptest.NewRecorder()
+	vn.ServicesMux().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		return "", fmt.Errorf("failed to query DHCP leases: status %d", w.Code)
+	}
+
+	var leases map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&leases); err != nil {
+		return "", fmt.Errorf("failed to decode DHCP leases: %v", err)
+	}
+
+	for ip := range leases {
+		if ip != gatewayIP {
+			return ip, nil
+		}
+	}
+
+	return "", fmt.Errorf("no container leases found")
+}
+
+func startPortForwarder(localAddr, remoteAddr string, vn *gvnvirtualnetwork.VirtualNetwork) {
+	startPortForwarderWithContext(context.Background(), localAddr, remoteAddr, vn)
+}
+
+func startPortForwarderWithContext(ctx context.Context, localAddr, remoteAddr string, vn *gvnvirtualnetwork.VirtualNetwork) {
+	listener, err := net.Listen("tcp", localAddr)
+	if err != nil {
+		log.Printf("failed to listen on %s: %v\n", localAddr, err)
+		return
+	}
+	defer listener.Close()
+	log.Printf("forwarding %s -> %s\n", localAddr, remoteAddr)
+
+	go func() {
+		<-ctx.Done()
+		listener.Close()
+	}()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				log.Printf("port forwarder %s stopped\n", localAddr)
+				return
+			default:
+				log.Printf("failed to accept connection on %s: %v\n", localAddr, err)
+				return
+			}
+		}
+		go handleConnection(conn, remoteAddr, vn)
+	}
+}
+
+func handleConnection(clientConn net.Conn, remoteAddr string, vn *gvnvirtualnetwork.VirtualNetwork) {
+	defer clientConn.Close()
+
+	targetConn, err := vn.DialContextTCP(context.Background(), remoteAddr)
+	if err != nil {
+		log.Printf("failed to dial %s: %v\n", remoteAddr, err)
+		return
+	}
+	defer targetConn.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		io.Copy(targetConn, clientConn)
+	}()
+	go func() {
+		defer wg.Done()
+		io.Copy(clientConn, targetConn)
+	}()
+	wg.Wait()
 }
 
 type sliceFlags []string
