@@ -8,7 +8,6 @@ ARG WIZER_VERSION=04e49c989542f2bf3a112d60fbf88a62cce2d0d0
 ARG EMSDK_VERSION=3.1.40 # TODO: support recent version
 ARG EMSDK_VERSION_QEMU=4.0.10
 ARG BINARYEN_VERSION=114
-ARG BUSYBOX_VERSION=1.36.1
 ARG RUNC_VERSION=v1.3.0
 
 # ARG LINUX_LOGLEVEL=0
@@ -41,7 +40,14 @@ ARG QEMU_REPO_VERSION=8604ed49a3cde392890b014a8d5a959c8a2fe72a
 ARG SOURCE_REPO=https://github.com/container2wasm/container2wasm
 ARG SOURCE_REPO_VERSION=v0.8.4
 
-ARG ZLIB_VERSION=1.3.2
+# Use official GitHub mirror. See https://busybox.net/source.html
+ARG BUSYBOX_REPO=https://github.com/vda-linux/busybox_mirror
+ARG BUSYBOX_VERSION=1_36_1
+
+# Use official GitHub repo. See https://zlib.net/
+ARG ZLIB_REPO=https://github.com/madler/zlib
+ARG ZLIB_VERSION=v1.3.2
+
 ARG GLIB_MINOR_VERSION=2.75
 ARG GLIB_VERSION=${GLIB_MINOR_VERSION}.0
 ARG PIXMAN_VERSION=0.42.2
@@ -215,13 +221,12 @@ COPY --link --from=binfmt /usr/bin/qemu-s390 /usr/bin/
 FROM binfmt-$TARGETARCH AS binfmt-dev
 
 FROM gcc-riscv64-linux-gnu-base AS busybox-riscv64-dev
+ARG BUSYBOX_REPO
 ARG BUSYBOX_VERSION
 RUN apt-get update -y && apt-get install -y gcc bzip2 wget
 WORKDIR /work
-RUN wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN bzip2 -d busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN tar xvf busybox-${BUSYBOX_VERSION}.tar
-WORKDIR /work/busybox-${BUSYBOX_VERSION}
+RUN git clone --depth 1 -b $BUSYBOX_VERSION $BUSYBOX_REPO /work/busybox/
+WORKDIR /work/busybox/
 RUN make CROSS_COMPILE=riscv64-linux-gnu- LDFLAGS=--static defconfig
 RUN make CROSS_COMPILE=riscv64-linux-gnu- LDFLAGS=--static -j$(nproc)
 RUN mkdir -p /out/bin && mv busybox /out/bin/busybox
@@ -373,9 +378,9 @@ WORKDIR /glib-emscripten
 RUN mkdir -p $TARGET
 
 FROM glib-emscripten-base AS zlib-emscripten-dev
+ARG ZLIB_REPO
 ARG ZLIB_VERSION
-RUN mkdir -p /zlib
-RUN curl -LsS https://zlib.net/fossils/zlib-$ZLIB_VERSION.tar.gz | tar zxC /zlib --strip-components=1
+RUN git clone --depth 1 -b $ZLIB_VERSION $ZLIB_REPO /zlib/
 WORKDIR /zlib
 RUN emconfigure ./configure --prefix=$TARGET --static
 RUN make install
@@ -502,13 +507,12 @@ FROM scratch AS linux-amd64-config
 COPY --link --from=linux-amd64-config-dev /work-buildlinux/linux/.config /
 
 FROM gcc-x86-64-linux-gnu-base AS busybox-amd64-dev
+ARG BUSYBOX_REPO
 ARG BUSYBOX_VERSION
 RUN apt-get update -y && apt-get install -y gcc bzip2 wget
 WORKDIR /work
-RUN wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN bzip2 -d busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN tar xvf busybox-${BUSYBOX_VERSION}.tar
-WORKDIR /work/busybox-${BUSYBOX_VERSION}
+RUN git clone --depth 1 -b $BUSYBOX_VERSION $BUSYBOX_REPO /work/busybox/
+WORKDIR /work/busybox/
 RUN make CROSS_COMPILE=x86_64-linux-gnu- LDFLAGS=--static defconfig
 RUN make CROSS_COMPILE=x86_64-linux-gnu- LDFLAGS=--static -j$(nproc)
 RUN mkdir -p /out/bin && mv busybox /out/bin/busybox
@@ -626,13 +630,12 @@ FROM scratch AS linux-aarch64-config
 COPY --link --from=linux-aarch64-config-dev /work-buildlinux/linux/.config /
 
 FROM gcc-aarch64-linux-gnu-base AS busybox-aarch64-dev
+ARG BUSYBOX_REPO
 ARG BUSYBOX_VERSION
 RUN apt-get update -y && apt-get install -y gcc bzip2 wget
 WORKDIR /work
-RUN wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN bzip2 -d busybox-${BUSYBOX_VERSION}.tar.bz2
-RUN tar xvf busybox-${BUSYBOX_VERSION}.tar
-WORKDIR /work/busybox-${BUSYBOX_VERSION}
+RUN git clone --depth 1 -b $BUSYBOX_VERSION $BUSYBOX_REPO /work/busybox/
+WORKDIR /work/busybox/
 RUN make CROSS_COMPILE=aarch64-linux-gnu- LDFLAGS=--static defconfig
 RUN make CROSS_COMPILE=aarch64-linux-gnu- LDFLAGS=--static -j$(nproc)
 RUN mkdir -p /out/bin && mv busybox /out/bin/busybox
