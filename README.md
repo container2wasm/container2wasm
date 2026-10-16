@@ -243,6 +243,7 @@ Options:
 - `-p value`: Map a port between host and guest (`host:guest` or `ip:host:guest`). The `--mac` flag must be set correctly.
 - `--wasi-addr value`: IP address used to communicate between WASI and the network stack when using `--invoke` (default: `"127.0.0.1:1234"`).
 - `--wasmtime-cli-13`: Use the old wasmtime CLI syntax for version 13 or earlier.
+- `--env value`: Set an environment variable for the invoked WASM module (`KEY=VALUE`); may be repeated.
 - `--ws-cert value`: TLS certificate for the WebSocket connection.
 - `--ws-key value`: TLS key for the WebSocket connection.
 
