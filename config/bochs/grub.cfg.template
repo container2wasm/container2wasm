@@ -2,5 +2,5 @@ set default=0
 set timeout=0
 
 menuentry 'linux' {
-    linux /boot/grub/bzImage console=hvc0 root=/dev/sr0 rootwait ro virtio_net.napi_tx=false quiet loglevel=${LOGLEVEL} init=/sbin/tini -- /sbin/init
+    linux /boot/grub/bzImage console=hvc0 root=/dev/sr0 rootwait ro virtio_net.napi_tx=false quiet loglevel=${LOGLEVEL} ${CMDLINE_EXTRA} init=/sbin/tini -- /sbin/init
 }

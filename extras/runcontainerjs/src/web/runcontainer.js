@@ -1,22 +1,25 @@
+import { shouldUseRangeFetch, buildRangeRequest, createLayerConnection, applyQemuMemoryOptions, layerReadableSize } from './layer-fetch.js';
+
 let stackWorker = null;
 
-export async function createContainerWASI(vmImage, imageAddr, stackWorkerPath, mounterWasmURL) {
+export async function createContainerWASI(vmImage, imageAddr, stackWorkerPath, mounterWasmURL, options = {}) {
     stackWorker = new Worker(stackWorkerPath);
     let cert = null;
     let net = null;
     await new Promise((resolve) => {
-        net = createStack(stackWorker, imageAddr, mounterWasmURL, (c) => { cert = c; resolve(); });
+        net = createStack(stackWorker, imageAddr, mounterWasmURL, (c) => { cert = c; resolve(); }, options.log, options);
     });
-    return {vmImage: vmImage, net: net, cert: cert};
+    return {vmImage: vmImage, net: net, cert: cert, options: options};
 }
 
 var accepted = false;
 let curSocket = null;
 let eventQueue = [];
 
-export async function createContainerQEMUWasm(Module, outJsAddr, imageAddr, stackWorkerPath, mounterWasmURL, argModuleJsAddr, loadJsAddr, locateFile, options) {
+export async function createContainerQEMUWasm(Module, outJsAddr, imageAddr, stackWorkerPath, mounterWasmURL, argModuleJsAddr, loadJsAddr, locateFile, options = {}) {
     try {
         window.Module = Module;
+        applyQemuMemoryOptions(Module, options);
         const { default: initEmscriptenModule } = await import(/* webpackIgnore: true */`${outJsAddr}`);
         await import(/* webpackIgnore: true */`${argModuleJsAddr}`);
         
@@ -43,7 +46,7 @@ export async function createContainerQEMUWasm(Module, outJsAddr, imageAddr, stac
                     mod.FS.writeFile('/.wasmenv/proxy.crt', cert);
                 });
                 resolve();
-            }, options.log);
+            }, options.log, options);
         });
         let info = "t:" + Math.round(new Date() / 1000) + "\n";
         info += 'n:' + genmac() + '\n';
@@ -122,7 +125,7 @@ function emscriptenMockWebSocket(address, onconnection) {
     window.WebSocket = EmscriptenMockWebSocket;
 }
 
-function startQEMUWasm(address, stackWorkerFile, mounterWasmURL, imageAddr, readyCallback, log) {
+function startQEMUWasm(address, stackWorkerFile, mounterWasmURL, imageAddr, readyCallback, log, options) {
     emscriptenMockWebSocket(address, (client) => {
         if (curSocket != null) {
             console.log("duplicated");
@@ -144,7 +147,7 @@ function startQEMUWasm(address, stackWorkerFile, mounterWasmURL, imageAddr, read
 
     stackWorker = new Worker(stackWorkerFile);
 
-    let conn = createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback, log);
+    let conn = createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback, log, options);
     registerConnBuffer(conn.toNet, conn.fromNet);
     registerMetaBuffer(conn.metaFromNet);
 }
@@ -318,7 +321,7 @@ export function RecvCert(){
     });
 }
 
-function createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback, log) {
+function createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback, log, options) {
     var proxyShared = new SharedArrayBuffer(12 + 1024 * 1024);
 
     var toShared = new SharedArrayBuffer(1024 * 1024);
@@ -355,7 +358,7 @@ function createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback, log)
         buf: new Uint8Array(0),
         readyCallback: readyCallback
     }
-    stackWorker.onmessage = connect("proxy", proxyShared, toShared, certbuf, log);
+    stackWorker.onmessage = connect("proxy", proxyShared, toShared, certbuf, log, options);
     stackWorker.postMessage({type: "init", buf: proxyShared, toBuf: toShared, fromBuf: fromShared, imageAddr: imageAddr, mounterWasmURL: mounterWasmURL, metaFromBuf: metaFromShared});
     return {
         toNet: toShared,
@@ -364,7 +367,7 @@ function createStack(stackWorker, imageAddr, mounterWasmURL, readyCallback, log)
     };
 }
 
-function connect(name, shared, toNet, certbuf, log) {
+function connect(name, shared, toNet, certbuf, log, options) {
     var streamCtrl = new Int32Array(shared, 0, 1);
     var streamStatus = new Int32Array(shared, 4, 1);
     var streamLen = new Int32Array(shared, 8, 1);
@@ -653,14 +656,6 @@ function connect(name, shared, toNet, certbuf, log) {
                     streamStatus[0] = 0;
                     break;
                 case "layer_request":
-                    var reqObj = {
-                        method: "GET",
-                    };
-                    reqObj.mode = "cors";
-                    reqObj.credentials = "omit";
-                    if (reqObj.headers && reqObj.headers["User-Agent"] != "") {
-                        delete reqObj.headers["User-Agent"]; // Browser will add its own value.
-                    }
                     var reqID = getID();
                     if (reqID < 0) {
                         console.log(name + ":" + "failed to get id");
@@ -668,82 +663,153 @@ function connect(name, shared, toNet, certbuf, log) {
                         break;
                     }
                     var digest = new TextDecoder().decode(req_.digest);
-                    var connObj = {
-                        address: new TextDecoder().decode(req_.address),
-                        request: reqObj,
-                        requestSent: false,
-                        reqBodybuf: new Uint8Array(0),
-                        reqBodyEOF: false,
-
-                        response: null,
-                        done: null,
-                        respBodybuf: null,
-                    };
+                    var connObj = createLayerConnection(
+                        new TextDecoder().decode(req_.address),
+                        digest,
+                        req_.isGzipN
+                    );
                     httpConnections[reqID] = connObj;
                     httpConnections[reqID].reqBodyEOF = 1;
                     streamStatus[0] = 0;
                     httpConnections[reqID].requestSent = true;
                     connObj = httpConnections[reqID];
-                    fetch(connObj.address, connObj.request).then((resp) => {
-                        var headers = {};
-                        for (const key of resp.headers.keys()) {
-                            headers[key] = resp.headers.get(key);
+                    fetch(connObj.address, { method: "HEAD", mode: "cors", credentials: "omit" }).then((headResp) => {
+                        const headProbe = {
+                            ok: headResp.ok,
+                            get: (key) => headResp.headers.get(key),
+                        };
+                        const contentLength = parseInt(headResp.headers.get("Content-Length") || "0", 10);
+                        if (shouldUseRangeFetch(headProbe, req_.isGzipN)) {
+                            connObj.rangeCapable = true;
+                            connObj.contentLength = contentLength;
+                            connObj.response = new TextEncoder().encode(JSON.stringify({
+                                status: headResp.status,
+                                headers: { "accept-ranges": "bytes", "content-length": String(contentLength) },
+                            }));
+                            connObj.respBodybuf = new Uint8Array(0);
+                            connObj.done = true;
+                            if (options && options.log) {
+                                options.log("layer range mode: " + connObj.address + " (" + contentLength + " bytes)");
+                            }
+                            return;
                         }
-                        connObj.response = new TextEncoder().encode(JSON.stringify({
-                            bodyUsed: resp.bodyUsed,
-                            headers: headers,
-                            redirected: resp.redirected,
-                            status: resp.status,
-                            statusText: resp.statusText,
-                            type: resp.type,
-                            url: resp.url
-                        })),
-                        connObj.done = false;
-                        connObj.respBodybuf = new Uint8Array(0);
-                        if (resp.ok) {
-                            resp.arrayBuffer().then((data) => {
-                                crypto.subtle.digest("SHA-256", data).then((hash) => {
-                                    const hashArray = Array.from(new Uint8Array(hash));
-                                    const hashHex = hashArray
-                                          .map((b) => b.toString(16).padStart(2, "0"))
-                                          .join(""); // convert bytes to hex string
-                                    if (hashHex != digest) {
-                                        // TODO: return error
-                                        connObj.respBodybuf = new Uint8Array(0);
-                                        connObj.respBodyError = new Error("digest unmatch");
-                                        connObj.done = true;
-                                        console.log("failed to fetch layer: " + connObj.respBodyError);
-                                        return;
-                                    }
-                                    if (req_.isGzipN == 0) {
-                                        connObj.respBodybuf = new Uint8Array(data);
-                                        connObj.done = true;
-                                    } else {
-                                        const ds = new DecompressionStream("gzip")
-                                        new Response(new Blob([data]).stream().pipeThrough(ds))['arrayBuffer']().then((data) => {
+                        if (contentLength > 256 * 1024 * 1024 && options && options.log) {
+                            options.log("layer full fetch: " + connObj.address + " (" + contentLength + " bytes; consider eStargz/Range)");
+                        }
+                        fetch(connObj.address, connObj.request).then((resp) => {
+                            var headers = {};
+                            for (const key of resp.headers.keys()) {
+                                headers[key] = resp.headers.get(key);
+                            }
+                            connObj.response = new TextEncoder().encode(JSON.stringify({
+                                bodyUsed: resp.bodyUsed,
+                                headers: headers,
+                                redirected: resp.redirected,
+                                status: resp.status,
+                                statusText: resp.statusText,
+                                type: resp.type,
+                                url: resp.url
+                            }));
+                            connObj.done = false;
+                            connObj.respBodybuf = new Uint8Array(0);
+                            if (resp.ok) {
+                                resp.arrayBuffer().then((data) => {
+                                    crypto.subtle.digest("SHA-256", data).then((hash) => {
+                                        const hashArray = Array.from(new Uint8Array(hash));
+                                        const hashHex = hashArray
+                                              .map((b) => b.toString(16).padStart(2, "0"))
+                                              .join("");
+                                        if (hashHex != digest) {
+                                            connObj.respBodybuf = new Uint8Array(0);
+                                            connObj.respBodyError = new Error("digest unmatch");
+                                            connObj.done = true;
+                                            console.log("failed to fetch layer: " + connObj.respBodyError);
+                                            return;
+                                        }
+                                        if (req_.isGzipN == 0) {
                                             connObj.respBodybuf = new Uint8Array(data);
                                             connObj.done = true;
-                                        })
-                                    }
-                                });
-                            })
-                        } else {
+                                        } else {
+                                            const ds = new DecompressionStream("gzip")
+                                            new Response(new Blob([data]).stream().pipeThrough(ds))['arrayBuffer']().then((data) => {
+                                                connObj.respBodybuf = new Uint8Array(data);
+                                                connObj.done = true;
+                                            })
+                                        }
+                                    });
+                                })
+                            } else {
+                                connObj.done = true;
+                            }
+                        }).catch((error) => {
+                            connObj.response = new TextEncoder().encode(JSON.stringify({
+                                status: 503,
+                                statusText: "Service Unavailable",
+                            }))
+                            connObj.respBodybuf = new Uint8Array(0);
                             connObj.done = true;
-                        }
-                    }).catch((error) => {
-                        connObj.response = new TextEncoder().encode(JSON.stringify({
-                            status: 503,
-                            statusText: "Service Unavailable",
-                        }))
-                        connObj.respBodybuf = new Uint8Array(0);
-                        connObj.done = true;
+                        });
+                    }).catch(() => {
+                        fetch(connObj.address, connObj.request).then((resp) => {
+                            var headers = {};
+                            for (const key of resp.headers.keys()) {
+                                headers[key] = resp.headers.get(key);
+                            }
+                            connObj.response = new TextEncoder().encode(JSON.stringify({
+                                bodyUsed: resp.bodyUsed,
+                                headers: headers,
+                                redirected: resp.redirected,
+                                status: resp.status,
+                                statusText: resp.statusText,
+                                type: resp.type,
+                                url: resp.url
+                            }));
+                            connObj.done = false;
+                            connObj.respBodybuf = new Uint8Array(0);
+                            if (resp.ok) {
+                                resp.arrayBuffer().then((data) => {
+                                    crypto.subtle.digest("SHA-256", data).then((hash) => {
+                                        const hashArray = Array.from(new Uint8Array(hash));
+                                        const hashHex = hashArray
+                                              .map((b) => b.toString(16).padStart(2, "0"))
+                                              .join("");
+                                        if (hashHex != digest) {
+                                            connObj.respBodybuf = new Uint8Array(0);
+                                            connObj.respBodyError = new Error("digest unmatch");
+                                            connObj.done = true;
+                                            console.log("failed to fetch layer: " + connObj.respBodyError);
+                                            return;
+                                        }
+                                        if (req_.isGzipN == 0) {
+                                            connObj.respBodybuf = new Uint8Array(data);
+                                            connObj.done = true;
+                                        } else {
+                                            const ds = new DecompressionStream("gzip")
+                                            new Response(new Blob([data]).stream().pipeThrough(ds))['arrayBuffer']().then((data) => {
+                                                connObj.respBodybuf = new Uint8Array(data);
+                                                connObj.done = true;
+                                            })
+                                        }
+                                    });
+                                })
+                            } else {
+                                connObj.done = true;
+                            }
+                        }).catch((error) => {
+                            connObj.response = new TextEncoder().encode(JSON.stringify({
+                                status: 503,
+                                statusText: "Service Unavailable",
+                            }))
+                            connObj.respBodybuf = new Uint8Array(0);
+                            connObj.done = true;
+                        });
                     });
                     streamStatus[0] = reqID;
                     break;
                 case "layer_isreadable":
                     if ((httpConnections[req_.id] != undefined) && (httpConnections[req_.id].response != null) && (httpConnections[req_.id].done)) {
                         streamData[0] = 1; // ready for reading
-                        streamStatus[0] = httpConnections[req_.id].respBodybuf.byteLength;
+                        streamStatus[0] = layerReadableSize(httpConnections[req_.id]);
 
                     } else {
                         streamData[0] = 0; // nothing to read
@@ -751,7 +817,7 @@ function connect(name, shared, toNet, certbuf, log) {
                     }
                     break;
                 case "layer_readat":
-                    if ((httpConnections[req_.id] == undefined) || (httpConnections[req_.id].response == null) && (httpConnections[req_.id].done)) {
+                    if ((httpConnections[req_.id] == undefined) || (httpConnections[req_.id].response == null)) {
                         console.log(name + ":" + "response body is not available");
                         streamStatus[0] = -1;
                         break;
@@ -760,6 +826,33 @@ function connect(name, shared, toNet, certbuf, log) {
                         console.log(name + ":" + "error on reading response body:", httpConnections[req_.id].respBodyError);
                         streamStatus[0] = -1;
                         break;
+                    }
+                    if (httpConnections[req_.id].rangeCapable) {
+                        const conn = httpConnections[req_.id];
+                        const rangeReq = buildRangeRequest(conn.address, req_.offset, req_.len);
+                        fetch(rangeReq.url, rangeReq).then((resp) => {
+                            if (!resp.ok && resp.status !== 206) {
+                                streamStatus[0] = -1;
+                                Atomics.store(streamCtrl, 0, 1);
+                                Atomics.notify(streamCtrl, 0);
+                                return;
+                            }
+                            resp.arrayBuffer().then((data) => {
+                                serveDataOffset(new Uint8Array(data), 0, req_.len);
+                                streamStatus[0] = 0;
+                                Atomics.store(streamCtrl, 0, 1);
+                                Atomics.notify(streamCtrl, 0);
+                            }).catch(() => {
+                                streamStatus[0] = -1;
+                                Atomics.store(streamCtrl, 0, 1);
+                                Atomics.notify(streamCtrl, 0);
+                            });
+                        }).catch(() => {
+                            streamStatus[0] = -1;
+                            Atomics.store(streamCtrl, 0, 1);
+                            Atomics.notify(streamCtrl, 0);
+                        });
+                        return;
                     }
                     serveDataOffset(httpConnections[req_.id].respBodybuf, req_.offset, req_.len);
                     streamStatus[0] = 0;

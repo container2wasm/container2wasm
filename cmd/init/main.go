@@ -280,6 +280,9 @@ func doInit() error {
 	}
 
 	s = patchSpec(s, info, imageConfig)
+	if os.Getenv("C2W_WARM_SNAPSHOT") == "1" {
+		s = patchWarmSnapshotSpec(s)
+	}
 	log.Printf("Running: %+v\n", s.Process.Args)
 	sd, err := json.Marshal(s)
 	if err != nil {
@@ -499,5 +502,12 @@ func patchSpec(s runtimespec.Spec, info runtimeFlags, imageConfig imagespec.Imag
 		args = imageConfig.Config.Cmd
 	}
 	s.Process.Args = append(entrypoint, args...)
+	return s
+}
+
+// patchWarmSnapshotSpec overrides the container command during warm-state capture builds.
+func patchWarmSnapshotSpec(s runtimespec.Spec) runtimespec.Spec {
+	s.Process.Args = []string{"/bin/sh", "-c", "/sbin/warm-snapshot-entry.sh"}
+	s.Process.Terminal = true
 	return s
 }

@@ -207,7 +207,7 @@ Options
 - `--dockerfile value`: Custom location of Dockerfile (default: embedded to this command)
 - `--builder value`: Bulider command to use (default: "docker")
 - `--target-arch value`: target architecture of the source image to use (default: "amd64")
-- `--build-arg value`: Additional build arguments (please see Dockerfile for available build args)
+- `--build-arg value`: Additional build arguments (please see Dockerfile for available build args). Notable defaults: `VM_MEMORY_SIZE_MB=2047` (guest VM RAM; use 2047 not 2048 for browser QEMU), `WASM_INITIAL_MEMORY_MB=2047`, `WASM_MAXIMUM_MEMORY_MB=4096` (Emscripten heap with growth).
 - `--to-js`: convert the container to WASM using emscripten
 - `--debug-image`: Enable debug print in the output image
 - `--show-dockerfile`: Show default Dockerfile
