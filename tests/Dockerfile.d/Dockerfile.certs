@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 RUN apt-get update && apt-get install -y openssl
 CMD openssl req -subj "/CN=testpage" -addext "subjectAltName = DNS:testpage" \
     -newkey rsa:2048 -nodes -keyout /certs/server.key \
