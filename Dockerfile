@@ -42,7 +42,7 @@ ARG SOURCE_REPO_VERSION=v0.8.4
 
 # Use official GitHub mirror. See https://busybox.net/source.html
 ARG BUSYBOX_REPO=https://github.com/vda-linux/busybox_mirror
-ARG BUSYBOX_VERSION=1_36_1
+ARG BUSYBOX_VERSION=1_38_0
 
 # Use official GitHub repo. See https://zlib.net/
 ARG ZLIB_REPO=https://github.com/madler/zlib
