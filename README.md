@@ -142,7 +142,7 @@ This example serves the image on `localhost:8080` using apache http server.
 > Or, you can also try a smaller example [`./emscripten-simple`](./examples/emscripten-simple/) without webpack dependencies.
 
 ```console
-$ ( cd ./examples/emscripten/htdocs/ && npx webpack && cp -R index.html dist vendor/xterm.css /tmp/out-js/htdocs/ )
+$ ( cd ./examples/emscripten/htdocs/ && npm install && npx webpack && cp -R index.html dist vendor/xterm.css /tmp/out-js/htdocs/ )
 $ wget -O /tmp/c2w-net-proxy.wasm https://github.com/container2wasm/container2wasm/releases/download/v0.5.0/c2w-net-proxy.wasm
 $ cat /tmp/c2w-net-proxy.wasm | gzip > /tmp/out-js/htdocs/c2w-net-proxy.wasm.gzip
 $ cp ./examples/emscripten/xterm-pty.conf /tmp/out-js/
