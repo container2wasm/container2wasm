@@ -20,7 +20,6 @@ export async function createContainerQEMUWasm(Module, outJsAddr, imageAddr, stac
         const { default: initEmscriptenModule } = await import(/* webpackIgnore: true */`${outJsAddr}`);
         await import(/* webpackIgnore: true */`${argModuleJsAddr}`);
         
-        Module['mainScriptUrlOrBlob'] = outJsAddr;
         Module['locateFile'] = locateFile;
 
         await new Promise((resolve, reject) => {

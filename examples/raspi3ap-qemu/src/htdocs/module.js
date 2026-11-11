@@ -1,4 +1,3 @@
-Module['mainScriptUrlOrBlob'] = location.origin + "/out.js";
 Module['arguments'] = [
     '-nic', 'none',
     '-M', 'raspi3ap', '-nographic',
