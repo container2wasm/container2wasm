@@ -382,7 +382,9 @@ func generateSpec(config ocispec.Image, rootfs string) (_ *specs.Spec, err error
 }
 
 func generateBootConfig(debug, debugInit bool, imageConfigPath, runtimeConfigPath, imageRootfsPath string, noVmtouch bool, binfmtArch string, externalBundle bool) (*inittype.BootConfig, error) {
-	runcArgs := []string{"run", "-b", runtimeBundlePath, "foo"}
+	// The guest kernels are built without CONFIG_KEYS. runc >= 1.5 warns (on the container's console)
+	// when it fails to create a session keyring, so don't let runc create one.
+	runcArgs := []string{"run", "--no-new-keyring", "-b", runtimeBundlePath, "foo"}
 	if debug {
 		runcArgs = append([]string{"--debug"}, runcArgs...)
 	}
