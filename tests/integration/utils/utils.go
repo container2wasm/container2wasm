@@ -22,6 +22,11 @@ import (
 const AssetPath = "/test/"
 const C2wBin = "c2w"
 const C2wNetProxyBin = "/opt/c2w-net-proxy.wasm"
+
+// buildCacheMinFreeSpace is the amount of free disk space kept after each test by pruning the build cache.
+// It must be larger than the disk space that a conversion can consume until the next prune.
+// TODO: tune based on measurement.
+const buildCacheMinFreeSpace = "20GB"
 const ImageMounterBin = "/opt/imagemounter.wasm"
 
 type Architecture int
@@ -222,8 +227,10 @@ func runTest(t *testing.T, tt TestSpec, in Input, runtimeEnv []string) {
 			}
 		}
 
-		// cleanup cache
-		assert.NilError(t, exec.Command("docker", "buildx", "prune", "-f", "--keep-storage=10GB").Run())
+		// Cleanup build cache only when disk space is actually short (e.g. on GitHub Actions runners).
+		// A fixed size limit (--keep-storage) evicts cache that subsequent tests often reuse, because a single
+		// conversion's cache is larger than the limit.
+		assert.NilError(t, exec.Command("docker", "buildx", "prune", "-f", "--min-free-space="+buildCacheMinFreeSpace).Run())
 		assert.NilError(t, exec.Command("docker", "system", "prune").Run())
 	})
 }
