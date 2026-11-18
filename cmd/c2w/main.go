@@ -13,7 +13,7 @@ import (
 
 	vendor "github.com/container2wasm/container2wasm"
 	"github.com/container2wasm/container2wasm/version"
-	"github.com/containerd/containerd/archive"
+	"github.com/containerd/containerd/v2/pkg/archive"
 	"github.com/containerd/platforms"
 	"github.com/urfave/cli"
 )
