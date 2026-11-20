@@ -1,8 +1,15 @@
-importScripts("https://cdn.jsdelivr.net/npm/xterm-pty@0.9.4/workerTools.js");
-importScripts(location.origin + "/browser_wasi_shim/index.js");
-importScripts(location.origin + "/browser_wasi_shim/wasi_defs.js");
-importScripts(location.origin + "/worker-util.js");
-importScripts(location.origin + "/wasi-util.js");
+import { Fd, WASI, wasi } from 'https://cdn.jsdelivr.net/npm/@bjorn3/browser_wasi_shim@0.3.0/+esm';
+import { Event, EventType, Subscription } from './wasi-util.js';
+import { TtyClient } from 'https://unpkg.com/xterm-pty-esm@0.10.2/out/index.mjs';
+import {
+    getImagename,
+    errStatus,
+    getCertDir,
+    recvCert,
+    serveIfInitMsg,
+    sockWaitForReadable,
+    wasiHackSocket,
+} from './worker-util.js';
 
 onmessage = (msg) => {
     if (serveIfInitMsg(msg)) {
@@ -51,29 +58,29 @@ onmessage = (msg) => {
 };
 
 function startWasi(wasm, ttyClient, args, env, fds, listenfd, connfd) {
-    var wasi = new WASI(args, env, fds);
-    wasiHack(wasi, ttyClient, connfd);
-    wasiHackSocket(wasi, listenfd, connfd);
+    var wasiInstance = new WASI(args, env, fds);
+    wasiHack(wasiInstance, ttyClient, connfd);
+    wasiHackSocket(wasiInstance, listenfd, connfd);
     WebAssembly.instantiate(wasm, {
-        "wasi_snapshot_preview1": wasi.wasiImport,
+        "wasi_snapshot_preview1": wasiInstance.wasiImport,
     }).then((inst) => {
-        wasi.start(inst.instance);
+        wasiInstance.start(inst.instance);
     });
 }
 
 // wasiHack patches wasi object for integrating it to xterm-pty.
-function wasiHack(wasi, ttyClient, connfd) {
+function wasiHack(wasiInstance, ttyClient, connfd) {
     // definition from wasi-libc https://github.com/WebAssembly/wasi-libc/blob/wasi-sdk-19/expected/wasm32-wasi/predefined-macros.txt
     const ERRNO_INVAL = 28;
     const ERRNO_AGAIN= 6;
-    var _fd_read = wasi.wasiImport.fd_read;
-    wasi.wasiImport.fd_read = (fd, iovs_ptr, iovs_len, nread_ptr) => {
+    var _fd_read = wasiInstance.wasiImport.fd_read;
+    wasiInstance.wasiImport.fd_read = (fd, iovs_ptr, iovs_len, nread_ptr) => {
         if (fd == 0) {
-            var buffer = new DataView(wasi.inst.exports.memory.buffer);
-            var buffer8 = new Uint8Array(wasi.inst.exports.memory.buffer);
-            var iovecs = Iovec.read_bytes_array(buffer, iovs_ptr, iovs_len);
+            var buffer = new DataView(wasiInstance.inst.exports.memory.buffer);
+            var buffer8 = new Uint8Array(wasiInstance.inst.exports.memory.buffer);
+            var iovecs = wasi.Iovec.read_bytes_array(buffer, iovs_ptr, iovs_len);
             var nread = 0;
-            for (i = 0; i < iovecs.length; i++) {
+            for (let i = 0; i < iovecs.length; i++) {
                 var iovec = iovecs[i];
                 if (iovec.buf_len == 0) {
                     continue;
@@ -86,18 +93,18 @@ function wasiHack(wasi, ttyClient, connfd) {
             return 0;
         } else {
             console.log("fd_read: unknown fd " + fd);
-            return _fd_read.apply(wasi.wasiImport, [fd, iovs_ptr, iovs_len, nread_ptr]);
+            return _fd_read.apply(wasiInstance.wasiImport, [fd, iovs_ptr, iovs_len, nread_ptr]);
         }
         return ERRNO_INVAL;
     }
-    var _fd_write = wasi.wasiImport.fd_write;
-    wasi.wasiImport.fd_write = (fd, iovs_ptr, iovs_len, nwritten_ptr) => {
+    var _fd_write = wasiInstance.wasiImport.fd_write;
+    wasiInstance.wasiImport.fd_write = (fd, iovs_ptr, iovs_len, nwritten_ptr) => {
         if ((fd == 1) || (fd == 2)) {
-            var buffer = new DataView(wasi.inst.exports.memory.buffer);
-            var buffer8 = new Uint8Array(wasi.inst.exports.memory.buffer);
-            var iovecs = Ciovec.read_bytes_array(buffer, iovs_ptr, iovs_len);
+            var buffer = new DataView(wasiInstance.inst.exports.memory.buffer);
+            var buffer8 = new Uint8Array(wasiInstance.inst.exports.memory.buffer);
+            var iovecs = wasi.Ciovec.read_bytes_array(buffer, iovs_ptr, iovs_len);
             var wtotal = 0
-            for (i = 0; i < iovecs.length; i++) {
+            for (let i = 0; i < iovecs.length; i++) {
                 var iovec = iovecs[i];
                 var buf = buffer8.slice(iovec.buf, iovec.buf + iovec.buf_len);
                 if (buf.length == 0) {
@@ -110,15 +117,15 @@ function wasiHack(wasi, ttyClient, connfd) {
             return 0;
         } else {
             console.log("fd_write: unknown fd " + fd);
-            return _fd_write.apply(wasi.wasiImport, [fd, iovs_ptr, iovs_len, nwritten_ptr]);
+            return _fd_write.apply(wasiInstance.wasiImport, [fd, iovs_ptr, iovs_len, nwritten_ptr]);
         }
         return ERRNO_INVAL;
     }
-    wasi.wasiImport.poll_oneoff = (in_ptr, out_ptr, nsubscriptions, nevents_ptr) => {
+    wasiInstance.wasiImport.poll_oneoff = (in_ptr, out_ptr, nsubscriptions, nevents_ptr) => {
         if (nsubscriptions == 0) {
             return ERRNO_INVAL;
         }
-        let buffer = new DataView(wasi.inst.exports.memory.buffer);
+        let buffer = new DataView(wasiInstance.inst.exports.memory.buffer);
         let in_ = Subscription.read_bytes_array(buffer, in_ptr, nsubscriptions);
         let isReadPollStdin = false;
         let isReadPollConn = false;

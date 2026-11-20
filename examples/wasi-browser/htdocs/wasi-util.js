@@ -1,3 +1,5 @@
+import { wasi } from 'https://cdn.jsdelivr.net/npm/@bjorn3/browser_wasi_shim@0.3.0/+esm';
+
 ////////////////////////////////////////////////////////////
 //
 // event-related classes adopted from the on-going discussion
@@ -6,7 +8,7 @@
 //
 ////////////////////////////////////////////////////////////
 
-class EventType {
+export class EventType {
     /*:: variant: "clock" | "fd_read" | "fd_write"*/
 
     constructor(variant/*: "clock" | "fd_read" | "fd_write"*/) {
@@ -15,11 +17,11 @@ class EventType {
 
     static from_u8(data/*: number*/)/*: EventType*/ {
         switch (data) {
-            case EVENTTYPE_CLOCK:
+            case wasi.EVENTTYPE_CLOCK:
                 return new EventType("clock");
-            case EVENTTYPE_FD_READ:
+            case wasi.EVENTTYPE_FD_READ:
                 return new EventType("fd_read");
-            case EVENTTYPE_FD_WRITE:
+            case wasi.EVENTTYPE_FD_WRITE:
                 return new EventType("fd_write");
             default:
                 throw "Invalid event type " + String(data);
@@ -29,18 +31,18 @@ class EventType {
     to_u8()/*: number*/ {
         switch (this.variant) {
             case "clock":
-                return EVENTTYPE_CLOCK;
+                return wasi.EVENTTYPE_CLOCK;
             case "fd_read":
-                return EVENTTYPE_FD_READ;
+                return wasi.EVENTTYPE_FD_READ;
             case "fd_write":
-                return EVENTTYPE_FD_WRITE;
+                return wasi.EVENTTYPE_FD_WRITE;
             default:
                 throw "unreachable";
         }
     }
 }
 
-class Event {
+export class Event {
     /*:: userdata: UserData*/
     /*:: error: number*/
     /*:: type: EventType*/
@@ -63,7 +65,7 @@ class Event {
     }
 }
 
-class SubscriptionClock {
+export class SubscriptionClock {
     /*:: timeout: number*/
 
     static read_bytes(view/*: DataView*/, ptr/*: number*/)/*: SubscriptionFdReadWrite*/ {
@@ -73,7 +75,7 @@ class SubscriptionClock {
     }
 }
 
-class SubscriptionFdReadWrite {
+export class SubscriptionFdReadWrite {
     /*:: fd: number*/
 
     static read_bytes(view/*: DataView*/, ptr/*: number*/)/*: SubscriptionFdReadWrite*/ {
@@ -83,7 +85,7 @@ class SubscriptionFdReadWrite {
     }
 }
 
-class SubscriptionU {
+export class SubscriptionU {
     /*:: tag: EventType */
     /*:: data: SubscriptionClock | SubscriptionFdReadWrite */
 
@@ -105,7 +107,7 @@ class SubscriptionU {
     }
 }
 
-class Subscription {
+export class Subscription {
     /*:: userdata: UserData */
     /*:: u: SubscriptionU */
 
