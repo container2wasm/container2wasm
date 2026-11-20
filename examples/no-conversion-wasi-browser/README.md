@@ -40,7 +40,7 @@ $ cp -R ./examples/no-conversion-wasi-browser/* /tmp/out-js3/
 $ cp -R /tmp/imageout /tmp/out-js3/htdocs/ubuntu-22.04
 $ make imagemounter.wasm && cat ./out/imagemounter.wasm | gzip >  /tmp/out-js3/htdocs/imagemounter.wasm.gzip
 $ cat out.wasm | gzip >  /tmp/out-js3/htdocs/out.wasm.gzip
-$ ( cd extras/runcontainerjs ; npx webpack && cp -R ./dist /tmp/out-js3/htdocs/ )
+$ ( cd extras/runcontainerjs ; npm install && npx webpack && cp -R ./dist /tmp/out-js3/htdocs/ )
 $ docker run --rm -p 127.0.0.1:8083:80 \
          -v "/tmp/out-js3/htdocs:/usr/local/apache2/htdocs/:ro" \
          -v "/tmp/out-js3/xterm-pty.conf:/usr/local/apache2/conf/extra/xterm-pty.conf:ro" \
