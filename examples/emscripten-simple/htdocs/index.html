@@ -20,7 +20,6 @@
       xterm.loadAddon(master);
 
       Module.pty = slave;
-      Module['mainScriptUrlOrBlob'] = location.origin + "/out.js";
 
       // "/pack/info" file needs to be provided to the filesystem to start
       // the container. Refer to /cmd/init/main.go for the detail of info file.

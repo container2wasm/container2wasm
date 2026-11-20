@@ -1,13 +1,13 @@
 # syntax = docker/dockerfile:1.5
 
 ARG BINFMT_VERSION=qemu-v6.1.0
-ARG WASI_SDK_VERSION=19
+ARG WASI_SDK_VERSION=24
 ARG WASI_SDK_VERSION_FULL=${WASI_SDK_VERSION}.0
-ARG WASI_VFS_VERSION=v0.3.0
-ARG WIZER_VERSION=04e49c989542f2bf3a112d60fbf88a62cce2d0d0
-ARG EMSDK_VERSION=3.1.40 # TODO: support recent version
-ARG EMSDK_VERSION_QEMU=4.0.10
-ARG BINARYEN_VERSION=114
+ARG WASI_VFS_VERSION=v0.5.5
+ARG WIZER_VERSION=3acc39cc561e7f985f163a2c8e89259a0dfc2f2f
+ARG EMSDK_VERSION=7.0.0
+ARG EMSDK_VERSION_QEMU=6.0.13
+ARG BINARYEN_VERSION=133
 ARG RUNC_VERSION=v1.5.3
 
 # ARG LINUX_LOGLEVEL=0
@@ -271,7 +271,9 @@ COPY --link --from=linux-riscv64-dev /out/Image /pack/Image
 COPY --link --from=rootfs-riscv64-dev /out/rootfs.bin /pack/rootfs.bin
 COPY --link --from=tinyemu-config-dev /out/tinyemu.config /pack/config
 
-FROM rust:1.74.1-bookworm AS tinyemu-dev-common
+# Tools in this stage (wasi-sdk, wasi-vfs, wizer, binaryen) run on the build host; only the wasm output is used later.
+FROM --platform=$BUILDPLATFORM rust:1.74.1-bookworm AS tinyemu-dev-common
+ARG BUILDARCH
 ARG WASI_VFS_VERSION
 ARG WASI_SDK_VERSION
 ARG WASI_SDK_VERSION_FULL
@@ -279,14 +281,21 @@ ARG WIZER_VERSION
 RUN apt-get update -y && apt-get install -y make curl git gcc xz-utils
 
 WORKDIR /wasi
-RUN curl -o wasi-sdk.tar.gz -fSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION_FULL}-linux.tar.gz && \
-    tar xvf wasi-sdk.tar.gz && rm wasi-sdk.tar.gz
+RUN case "${BUILDARCH}" in \
+      amd64) WASI_SDK_ARCH=x86_64 ;; \
+      arm64) WASI_SDK_ARCH=arm64 ;; \
+      *) echo "unsupported build architecture for wasi-sdk: ${BUILDARCH}" ; exit 1 ;; \
+    esac && \
+    curl -o wasi-sdk.tar.gz -fSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION_FULL}-${WASI_SDK_ARCH}-linux.tar.gz && \
+    mkdir wasi-sdk-${WASI_SDK_VERSION_FULL} && \
+    tar xvf wasi-sdk.tar.gz -C wasi-sdk-${WASI_SDK_VERSION_FULL} --strip-components=1 && rm wasi-sdk.tar.gz
 ENV WASI_SDK_PATH=/wasi/wasi-sdk-${WASI_SDK_VERSION_FULL}
 
 WORKDIR /work/
 RUN git clone https://github.com/kateinoigakukun/wasi-vfs.git --recurse-submodules && \
     cd wasi-vfs && \
     git checkout "${WASI_VFS_VERSION}" && \
+    CFLAGS_wasm32_unknown_unknown="--target=wasm32-wasip1 --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot" \
     cargo build --target wasm32-unknown-unknown && \
     cargo build --package wasi-vfs-cli && \
     mkdir -p /tools/wasi-vfs/ && \
@@ -372,7 +381,7 @@ RUN apt-get update && apt-get install -y \
     pkgconf \
     ninja-build \
     pipx
-RUN PIPX_BIN_DIR=/usr/local/bin pipx install meson==1.5.0
+RUN PIPX_BIN_DIR=/usr/local/bin pipx install meson==1.5.0 && pipx inject meson setuptools
 RUN mkdir /glib-emscripten
 WORKDIR /glib-emscripten
 RUN mkdir -p $TARGET
@@ -423,7 +432,7 @@ COPY --link --from=zlib-emscripten-dev /glib-emscripten/ /glib-emscripten/
 COPY --link --from=libffi-emscripten-dev /glib-emscripten/ /glib-emscripten/
 
 WORKDIR /glib
-ENV CFLAGS="-Wno-error=incompatible-function-pointer-types -Wincompatible-function-pointer-types -O2 -matomics -mbulk-memory -DNDEBUG -pthread -sWASM_BIGINT -sMALLOC=emmalloc -sASYNCIFY=1"
+ENV CFLAGS="-Wno-error=incompatible-function-pointer-types -Wincompatible-function-pointer-types -Wno-error=incompatible-pointer-types -O2 -matomics -mbulk-memory -DNDEBUG -pthread -sWASM_BIGINT -sMALLOC=emmalloc -sASYNCIFY=1"
 ENV CXXFLAGS="$CFLAGS"
 RUN <<EOF
 cat <<'EOT' > /emcc-meson-wrap.sh
@@ -475,10 +484,10 @@ RUN git clone  https://gitlab.freedesktop.org/pixman/pixman /pixman/
 WORKDIR /pixman
 RUN git checkout pixman-$PIXMAN_VERSION
 RUN NOCONFIGURE=y ./autogen.sh
-RUN emconfigure ./configure --prefix=/glib-emscripten/target/
+RUN emconfigure ./configure --prefix=/glib-emscripten/target/ --disable-shared
 RUN emmake make -j$(nproc)
 RUN emmake make install
-RUN rm /glib-emscripten/target/lib/libpixman-1.so /glib-emscripten/target/lib/libpixman-1.so.0 /glib-emscripten/target/lib/libpixman-1.so.$PIXMAN_VERSION
+RUN rm -f /glib-emscripten/target/lib/libpixman-1.so /glib-emscripten/target/lib/libpixman-1.so.0 /glib-emscripten/target/lib/libpixman-1.so.$PIXMAN_VERSION
 
 FROM ubuntu:22.04 AS gcc-x86-64-linux-gnu-base
 RUN apt-get update && apt-get install -y gcc-x86-64-linux-gnu linux-libc-dev-amd64-cross git make
@@ -863,11 +872,16 @@ RUN if test "${QEMU_MIGRATION}" = "true"  ; then /get-qemu-state -output=/pack/v
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-amd64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -Wno-error=unused-but-set-variable -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=$((3000*1024*1024)) -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
+RUN EXTRA_CFLAGS="-O3 -g -DEMSCRIPTEN -Wno-error=incompatible-pointer-types -Wno-error=unused-command-line-argument -Wno-error=unused-but-set-variable -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=$((3000*1024*1024)) -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=x86_64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
     --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \
     emmake make -j $(nproc) qemu-system-x86_64
+# emscripten >= 6.0.2 no longer reads Module.mainScriptUrlOrBlob by default, so pthread workers are spawned from
+# the build output's file name (qemu-system-*), but this file is distributed as out.js. Make workers load this
+# script itself instead, which also works when out.js is imported from a Blob URL.
+RUN sed -i 's|new URL("qemu-system-x86_64", import.meta.url)|new URL(import.meta.url)|' qemu-system-x86_64 && \
+    grep -q 'new Worker(new URL(import.meta.url)' qemu-system-x86_64
 COPY --from=qemu-x86_64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
       /emsdk/upstream/emscripten/tools/file_packager.py qemu-system-x86_64.data --preload /pack > load.js ; \
@@ -899,11 +913,14 @@ FROM js-qemu-amd64-${LOAD_MODE} AS js-qemu-amd64
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-aarch64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -fno-inline-functions -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 $XTERM_PTY_CFLAGS " ; \
+RUN EXTRA_CFLAGS="-O3 -fno-inline-functions -g -DEMSCRIPTEN -Wno-error=incompatible-pointer-types -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=aarch64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
     --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \
     emmake make -j $(nproc) qemu-system-aarch64
+# See qemu-emscripten-dev-amd64 for details.
+RUN sed -i 's|new URL("qemu-system-aarch64", import.meta.url)|new URL(import.meta.url)|' qemu-system-aarch64 && \
+    grep -q 'new Worker(new URL(import.meta.url)' qemu-system-aarch64
 COPY --from=qemu-aarch64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
       /emsdk/upstream/emscripten/tools/file_packager.py qemu-system-aarch64.data --preload /pack > load.js ; \
@@ -930,11 +947,14 @@ FROM js-qemu-aarch64-$LOAD_MODE AS js-aarch64
 
 FROM qemu-emscripten-dev AS qemu-emscripten-dev-riscv64
 ARG LOAD_MODE
-RUN EXTRA_CFLAGS="-O3 -g -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
+RUN EXTRA_CFLAGS="-O3 -g -DEMSCRIPTEN -Wno-error=incompatible-pointer-types -Wno-error=unused-command-line-argument -matomics -mbulk-memory -DNDEBUG -DG_DISABLE_ASSERT -D_GNU_SOURCE -sASYNCIFY=1 -pthread -sPROXY_TO_PTHREAD=1 -sFORCE_FILESYSTEM -sALLOW_TABLE_GROWTH -sTOTAL_MEMORY=2300MB -sWASM_BIGINT -sMALLOC=emmalloc -sEXPORT_ES6=1 -sASYNCIFY_IMPORTS=ffi_call_js $XTERM_PTY_CFLAGS " ; \
     emconfigure ../configure --static --target-list=riscv64-softmmu --cpu=wasm32 --cross-prefix= \
     --without-default-features --enable-system --with-coroutine=fiber --enable-virtfs \
     --extra-cflags="$EXTRA_CFLAGS" --extra-cxxflags="$EXTRA_CFLAGS" --extra-ldflags="-sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,TTY,FS" && \
     emmake make -j $(nproc) qemu-system-riscv64
+# See qemu-emscripten-dev-amd64 for details.
+RUN sed -i 's|new URL("qemu-system-riscv64", import.meta.url)|new URL(import.meta.url)|' qemu-system-riscv64 && \
+    grep -q 'new Worker(new URL(import.meta.url)' qemu-system-riscv64
 COPY --from=qemu-riscv64-pack /pack /pack
 RUN if test "${LOAD_MODE}" = "single" ; then \
       /emsdk/upstream/emscripten/tools/file_packager.py qemu-system-riscv64.data --preload /pack > load.js ; \
@@ -961,7 +981,9 @@ FROM js-qemu-riscv64-${LOAD_MODE} AS js-qemu-riscv64
 
 FROM js-qemu-riscv64 AS js-riscv64
 
-FROM rust:1.74.1-bookworm AS bochs-dev-common
+# See tinyemu-dev-common for the platform.
+FROM --platform=$BUILDPLATFORM rust:1.74.1-bookworm AS bochs-dev-common
+ARG BUILDARCH
 ARG WASI_VFS_VERSION
 ARG WASI_SDK_VERSION
 ARG WASI_SDK_VERSION_FULL
@@ -970,14 +992,21 @@ ARG WIZER_VERSION
 RUN apt-get update -y && apt-get install -y make curl git gcc xz-utils
 
 WORKDIR /wasi
-RUN curl -o wasi-sdk.tar.gz -fSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION_FULL}-linux.tar.gz && \
-    tar xvf wasi-sdk.tar.gz && rm wasi-sdk.tar.gz
+RUN case "${BUILDARCH}" in \
+      amd64) WASI_SDK_ARCH=x86_64 ;; \
+      arm64) WASI_SDK_ARCH=arm64 ;; \
+      *) echo "unsupported build architecture for wasi-sdk: ${BUILDARCH}" ; exit 1 ;; \
+    esac && \
+    curl -o wasi-sdk.tar.gz -fSL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION_FULL}-${WASI_SDK_ARCH}-linux.tar.gz && \
+    mkdir wasi-sdk-${WASI_SDK_VERSION_FULL} && \
+    tar xvf wasi-sdk.tar.gz -C wasi-sdk-${WASI_SDK_VERSION_FULL} --strip-components=1 && rm wasi-sdk.tar.gz
 ENV WASI_SDK_PATH=/wasi/wasi-sdk-${WASI_SDK_VERSION_FULL}
 
 WORKDIR /work/
 RUN git clone https://github.com/kateinoigakukun/wasi-vfs.git --recurse-submodules && \
     cd wasi-vfs && \
     git checkout "${WASI_VFS_VERSION}" && \
+    CFLAGS_wasm32_unknown_unknown="--target=wasm32-wasip1 --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot" \
     cargo build --target wasm32-unknown-unknown && \
     cargo build --package wasi-vfs-cli && \
     mkdir -p /tools/wasi-vfs/ && \
@@ -993,7 +1022,12 @@ RUN git clone https://github.com/bytecodealliance/wizer && \
     mv include target/debug/wizer /tools/wizer/ && \
     cargo clean
 
-RUN wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz
+RUN case "${BUILDARCH}" in \
+      amd64) BINARYEN_ARCH=x86_64 ;; \
+      arm64) BINARYEN_ARCH=aarch64 ;; \
+      *) echo "unsupported build architecture for binaryen: ${BUILDARCH}" ; exit 1 ;; \
+    esac && \
+    wget -O /tmp/binaryen.tar.gz https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-${BINARYEN_ARCH}-linux.tar.gz
 RUN mkdir -p /binaryen
 RUN tar -C /binaryen -zxvf /tmp/binaryen.tar.gz
 
@@ -1049,7 +1083,7 @@ COPY --link --from=vm-amd64-dev /pack /pack
 ARG INIT_DEBUG
 RUN LOGGING_FLAG=--disable-logging && \
     if test "${INIT_DEBUG}" = "true" ; then LOGGING_FLAG=--enable-logging ; fi && \
-    CFLAGS="-O2 -s WASM=1 -s ASYNCIFY=1 -s ALLOW_MEMORY_GROWTH=1  -s TOTAL_MEMORY=$((30*1024*1024)) -sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1 -D__GNU__" \
+    CFLAGS="-O2 -DEMSCRIPTEN -s WASM=1 -s ASYNCIFY=1 -s ALLOW_MEMORY_GROWTH=1  -s TOTAL_MEMORY=$((30*1024*1024)) -sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1 -D__GNU__" \
     CXXFLAGS="${CFLAGS}" \
     emconfigure ./configure --host wasm32-unknown-emscripten --enable-x86-64 --with-nogui --enable-usb --enable-usb-ehci \
     --disable-large-ramfile --disable-show-ips --disable-stats ${LOGGING_FLAG} \
