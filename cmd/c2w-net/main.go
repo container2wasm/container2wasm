@@ -37,7 +37,9 @@ func main() {
 		mac           = flag.String("mac", vmMAC, "mac address assigned to the container")
 		wasiAddr      = flag.String("wasi-addr", "127.0.0.1:1234", "IP address used to communicate between wasi and network stack (valid only with invoke flag)") // TODO: automatically use empty random port or unix socket
 		wasmtimeCli13 = flag.Bool("wasmtime-cli-13", false, "Use old wasmtime CLI (<= 13)")
+		envFlags      envFlag
 	)
+	flag.Var(&envFlags, "env", "set an environment variable for the invoked WASM module (KEY=VALUE; may be repeated)")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) < 1 {
@@ -103,12 +105,7 @@ func main() {
 				log.Printf("failed AcceptQemu: %v\n", err)
 			}
 		}()
-		var cmd *exec.Cmd
-		if *wasmtimeCli13 {
-			cmd = exec.Command("wasmtime", append([]string{"run", "--tcplisten=" + *wasiAddr, "--env='LISTEN_FDS=1'", "--"}, args...)...)
-		} else {
-			cmd = exec.Command("wasmtime", append([]string{"run", "-S", "preview2=n", "-S", "tcplisten=" + *wasiAddr, "--env='LISTEN_FDS=1'", "--"}, args...)...)
-		}
+		cmd := exec.Command("wasmtime", wasmtimeArgs(*wasmtimeCli13, *wasiAddr, envFlags, args)...)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -145,7 +142,40 @@ func main() {
 	}
 }
 
+func wasmtimeArgs(cli13 bool, wasiAddr string, env []string, args []string) []string {
+	var result []string
+	if cli13 {
+		result = []string{"run", "--tcplisten=" + wasiAddr}
+	} else {
+		result = []string{"run", "-S", "preview2=n", "-S", "tcplisten=" + wasiAddr}
+	}
+	result = append(result, "--env='LISTEN_FDS=1'")
+	for _, value := range env {
+		result = append(result, "--env="+value)
+	}
+	result = append(result, "--")
+	return append(result, args...)
+}
+
 type sliceFlags []string
+
+type envFlag []string
+
+func (f *envFlag) String() string {
+	return fmt.Sprintf("%v", []string(*f))
+}
+
+func (f *envFlag) Set(value string) error {
+	key, _, ok := strings.Cut(value, "=")
+	if !ok || key == "" {
+		return fmt.Errorf("environment variable must be in KEY=VALUE format")
+	}
+	if strings.ContainsRune(value, '\x00') {
+		return fmt.Errorf("environment variable must not contain NUL")
+	}
+	*f = append(*f, value)
+	return nil
+}
 
 func (f *sliceFlags) String() string {
 	var s []string = *f
