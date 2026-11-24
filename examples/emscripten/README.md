@@ -49,7 +49,7 @@ $ c2w --to-js --build-arg VM_CORE_NUMS=4 alpine:3.20 /tmp/out-js4/htdocs/
 Serve the image as the following (run them at the repository root dir):
 
 ```
-$ ( cd ./examples/emscripten/htdocs/ && npx webpack && cp -R index.html dist vendor/xterm.css /tmp/out-js4/htdocs/ )
+$ ( cd ./examples/emscripten/htdocs/ && npm install && npx webpack && cp -R index.html dist vendor/xterm.css /tmp/out-js4/htdocs/ )
 $ wget -O /tmp/c2w-net-proxy.wasm https://github.com/container2wasm/container2wasm/releases/download/v0.5.0/c2w-net-proxy.wasm
 $ cat /tmp/c2w-net-proxy.wasm | gzip > /tmp/out-js4/htdocs/c2w-net-proxy.wasm.gzip
 $ cp ./examples/emscripten/xterm-pty.conf /tmp/out-js4/
