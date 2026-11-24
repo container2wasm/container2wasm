@@ -33,12 +33,12 @@ import (
 	"time"
 	"unsafe"
 
-	ctdcontainers "github.com/containerd/containerd/containers"
-	ctdnamespaces "github.com/containerd/containerd/namespaces"
-	ctdoci "github.com/containerd/containerd/oci"
-	"github.com/containerd/containerd/reference"
-	"github.com/containerd/containerd/remotes"
-	"github.com/containerd/containerd/remotes/docker"
+	ctdcontainers "github.com/containerd/containerd/v2/core/containers"
+	"github.com/containerd/containerd/v2/core/remotes"
+	"github.com/containerd/containerd/v2/core/remotes/docker"
+	ctdnamespaces "github.com/containerd/containerd/v2/pkg/namespaces"
+	ctdoci "github.com/containerd/containerd/v2/pkg/oci"
+	"github.com/containerd/containerd/v2/pkg/reference"
 	"github.com/containerd/platforms"
 	esgzcache "github.com/containerd/stargz-snapshotter/cache"
 	"github.com/containerd/stargz-snapshotter/estargz"
@@ -441,9 +441,9 @@ func main() {
 	}
 
 	var (
-		imageServer *p9.Server
+		imageServer         *p9.Server
 		waitImageServerInit func()
-		err error
+		err                 error
 	)
 	if imageAddr != "" {
 		imageServer, waitImageServerInit, err = NewImageServer(context.TODO(), imageAddr, imagespec.Platform{
@@ -1324,11 +1324,21 @@ func (fs *bindFS) newQID() uint64 {
 	return fs.curQID
 }
 
-type bindNode struct {
-	p9.DefaultWalkGetAttr
+// fileTemplate provides the default no-op and read-only implementations of
+// p9.File. The templatefs types embed some of the same helpers, so the
+// conflicting ones are embedded here directly to resolve the ambiguity.
+type fileTemplate struct {
 	templatefs.NoopFile
 	templatefs.ReadOnlyFile
 	templatefs.ReadOnlyDir
+	templatefs.XattrUnimplemented
+	templatefs.NotLockable
+	templatefs.NoopRenamed
+}
+
+type bindNode struct {
+	p9.DefaultWalkGetAttr
+	fileTemplate
 
 	children map[p9.QID]p9.File // keyed by global qid
 	bind     map[p9.QID]p9.QID  // local to global (itself or chlidren)
@@ -1521,9 +1531,7 @@ func (n *bindNode) UnlinkAt(name string, flags uint32) error {
 
 type RouteNode struct {
 	p9.DefaultWalkGetAttr
-	templatefs.NoopFile
-	templatefs.ReadOnlyFile
-	templatefs.ReadOnlyDir
+	fileTemplate
 
 	children map[string]*bindNode
 	qid      p9.QID
@@ -1685,9 +1693,7 @@ func (a *attacher) Attach() (p9.File, error) {
 
 type Node struct {
 	p9.DefaultWalkGetAttr
-	templatefs.NoopFile
-	templatefs.ReadOnlyFile
-	templatefs.ReadOnlyDir
+	fileTemplate
 
 	qid  p9.QID
 	attr p9.Attr
